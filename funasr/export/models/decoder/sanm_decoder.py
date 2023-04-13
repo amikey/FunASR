@@ -198,7 +198,7 @@ class ParaformerSANMDecoderOnline(nn.Module):
         acoustic_embeds = torch.randn(2, 10, enc_size).type(torch.float32)
         acoustic_embeds_len = torch.tensor([5, 10], dtype=torch.int32)
         cache_num = len(self.model.decoders)
-        if hasattr(self.model, 'decoders2'):
+        if hasattr(self.model, 'decoders2') and self.model.decoders2 is not None:
             cache_num += len(self.model.decoders2)
         cache = [
             torch.zeros((1, self.model.decoders[0].size, self.model.decoders[0].self_attn.kernel_size-1), dtype=torch.float32)
@@ -208,14 +208,14 @@ class ParaformerSANMDecoderOnline(nn.Module):
 
     def get_input_names(self):
         cache_num = len(self.model.decoders)
-        if hasattr(self.model, 'decoders2'):
+        if hasattr(self.model, 'decoders2') and self.model.decoders2 is not None:
             cache_num += len(self.model.decoders2)
         return ['enc', 'enc_len', 'acoustic_embeds', 'acoustic_embeds_len'] \
                + ['in_cache_%d' % i for i in range(cache_num)]
 
     def get_output_names(self):
         cache_num = len(self.model.decoders)
-        if hasattr(self.model, 'decoders2'):
+        if hasattr(self.model, 'decoders2') and self.model.decoders2 is not None:
             cache_num += len(self.model.decoders2)
         return ['logits', 'sample_ids'] \
                + ['out_cache_%d' % i for i in range(cache_num)]
@@ -239,7 +239,7 @@ class ParaformerSANMDecoderOnline(nn.Module):
         
         }
         cache_num = len(self.model.decoders)
-        if hasattr(self.model, 'decoders2'):
+        if hasattr(self.model, 'decoders2') and self.model.decoders2 is not None:
             cache_num += len(self.model.decoders2)
         ret.update({
             'in_cache_%d' % d: {
