@@ -14,11 +14,11 @@ from funasr.export.models.e2e_asr_paraformer import ParaformerOnline_decoder as 
 def get_model(model, export_config=None):
     if isinstance(model, BiCifParaformer):
         return BiCifParaformer_export(model, **export_config)
-    elif isinstance(model, Paraformer):
-        return Paraformer_export(model, **export_config)
     elif isinstance(model, ParaformerOnline):
         return (ParaformerOnline_encoder_predictor_export(model, model_name=export_config.get('model_name', ['encoder', 'decoder'])[0]),
                 ParaformerOnline_decoder_export(model, model_name=export_config.get('model_name', ['encoder', 'decoder'])[1]))
+    elif isinstance(model, Paraformer):
+        return Paraformer_export(model, **export_config)
     elif isinstance(model, E2EVadModel):
         return E2EVadModel_export(model, **export_config)
     elif isinstance(model, PunctuationModel):

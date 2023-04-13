@@ -15,7 +15,7 @@ from funasr.models.decoder.sanm_decoder import ParaformerSANMDecoder
 from funasr.models.decoder.transformer_decoder import ParaformerDecoderSAN
 from funasr.export.models.decoder.sanm_decoder import ParaformerSANMDecoder as ParaformerSANMDecoder_export
 from funasr.export.models.decoder.transformer_decoder import ParaformerDecoderSAN as ParaformerDecoderSAN_export
-
+from funasr.export.models.decoder.sanm_decoder import ParaformerSANMDecoderOnline as ParaformerSANMDecoderOnline_export
 
 class Paraformer(nn.Module):
     """
@@ -335,10 +335,11 @@ class ParaformerOnline_decoder(nn.Module):
         #     self.encoder = ConformerEncoder_export(model.encoder, onnx=onnx)
         # if isinstance(model.predictor, CifPredictorV2):
         #     self.predictor = CifPredictorV2_export(model.predictor)
-        if isinstance(model.decoder, ParaformerSANMDecoder):
-            self.decoder = ParaformerSANMDecoder_export(model.decoder, onnx=onnx)
-        elif isinstance(model.decoder, ParaformerDecoderSAN):
+
+        if isinstance(model.decoder, ParaformerDecoderSAN):
             self.decoder = ParaformerDecoderSAN_export(model.decoder, onnx=onnx)
+        elif isinstance(model.decoder, ParaformerSANMDecoder):
+            self.decoder = ParaformerSANMDecoderOnline_export(model.decoder, onnx=onnx)
         
         self.feats_dim = feats_dim
         self.model_name = model_name
@@ -378,44 +379,12 @@ class ParaformerOnline_decoder(nn.Module):
     #     return (speech, speech_lengths)
 
     def get_input_names(self):
-        cache_num = len(self.model.decoders) + len(self.model.decoders2)
-        return ['enc', 'enc_len', 'acoustic_embeds', 'acoustic_embeds_len'] \
-               + ['in_cache_%d' % i for i in range(cache_num)]
+        
+        return self.decoder.get_input_names()
 
     def get_output_names(self):
-        cache_num = len(self.model.decoders) + len(self.model.decoders2)
-        return ['logits', 'sample_ids'] \
-               + ['out_cache_%d' % i for i in range(cache_num)]
+        
+        return self.decoder.get_output_names()
 
     def get_dynamic_axes(self):
-        ret = {
-            'enc': {
-                0: 'batch_size',
-                1: 'enc_length'
-            },
-            'acoustic_embeds': {
-                0: 'batch_size',
-                1: 'token_length'
-            },
-            'enc_len': {
-                0: 'batch_size',
-            },
-            'acoustic_embeds_len': {
-                0: 'batch_size',
-            },
-            
-        }
-        cache_num = len(self.model.decoders) + len(self.model.decoders2)
-        ret.update({
-            'in_cache_%d' % d: {
-                0: 'batch_size',
-            }
-            for d in range(cache_num)
-        })
-        ret.update({
-            'out_cache_%d' % d: {
-                0: 'batch_size',
-            }
-            for d in range(cache_num)
-        })
-        return ret
+        return self.decoder.get_dynamic_axes()

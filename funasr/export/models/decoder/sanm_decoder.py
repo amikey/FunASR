@@ -197,11 +197,60 @@ class ParaformerSANMDecoderOnline(nn.Module):
         enc_len = torch.tensor([30, 30], dtype=torch.int32)
         acoustic_embeds = torch.randn(2, 10, enc_size).type(torch.float32)
         acoustic_embeds_len = torch.tensor([5, 10], dtype=torch.int32)
-        cache_num = len(self.model.decoders) + len(self.model.decoders2)
+        cache_num = len(self.model.decoders)
+        if hasattr(self.model, 'decoders2'):
+            cache_num += len(self.model.decoders2)
         cache = [
             torch.zeros((1, self.model.decoders[0].size, self.model.decoders[0].self_attn.kernel_size-1), dtype=torch.float32)
             for _ in range(cache_num)
         ]
         return (enc, enc_len, acoustic_embeds, acoustic_embeds_len, cache)
-    
 
+    def get_input_names(self):
+        cache_num = len(self.model.decoders)
+        if hasattr(self.model, 'decoders2'):
+            cache_num += len(self.model.decoders2)
+        return ['enc', 'enc_len', 'acoustic_embeds', 'acoustic_embeds_len'] \
+               + ['in_cache_%d' % i for i in range(cache_num)]
+
+    def get_output_names(self):
+        cache_num = len(self.model.decoders)
+        if hasattr(self.model, 'decoders2'):
+            cache_num += len(self.model.decoders2)
+        return ['logits', 'sample_ids'] \
+               + ['out_cache_%d' % i for i in range(cache_num)]
+
+    def get_dynamic_axes(self):
+        ret = {
+            'enc': {
+                0: 'batch_size',
+                1: 'enc_length'
+            },
+            'acoustic_embeds': {
+                0: 'batch_size',
+                1: 'token_length'
+            },
+            'enc_len': {
+                0: 'batch_size',
+            },
+            'acoustic_embeds_len': {
+                0: 'batch_size',
+            },
+        
+        }
+        cache_num = len(self.model.decoders)
+        if hasattr(self.model, 'decoders2'):
+            cache_num += len(self.model.decoders2)
+        ret.update({
+            'in_cache_%d' % d: {
+                0: 'batch_size',
+            }
+            for d in range(cache_num)
+        })
+        ret.update({
+            'out_cache_%d' % d: {
+                0: 'batch_size',
+            }
+            for d in range(cache_num)
+        })
+        return ret
