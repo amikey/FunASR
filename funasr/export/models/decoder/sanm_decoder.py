@@ -194,17 +194,17 @@ class ParaformerSANMDecoderOnline(nn.Module):
     
     def get_dummy_inputs(self, enc_size):
         enc = torch.randn(2, 100, enc_size).type(torch.float32)
-        enc_len = torch.tensor([30, 30], dtype=torch.int32)
+        enc_len = torch.tensor([30, 100], dtype=torch.int32)
         acoustic_embeds = torch.randn(2, 10, enc_size).type(torch.float32)
         acoustic_embeds_len = torch.tensor([5, 10], dtype=torch.int32)
         cache_num = len(self.model.decoders)
         if hasattr(self.model, 'decoders2') and self.model.decoders2 is not None:
             cache_num += len(self.model.decoders2)
         cache = [
-            torch.zeros((1, self.model.decoders[0].size, self.model.decoders[0].self_attn.kernel_size-1), dtype=torch.float32)
+            torch.zeros((2, self.model.decoders[0].size, self.model.decoders[0].self_attn.kernel_size-1), dtype=torch.float32)
             for _ in range(cache_num)
         ]
-        return (enc, enc_len, acoustic_embeds, acoustic_embeds_len, cache)
+        return (enc, enc_len, acoustic_embeds, acoustic_embeds_len, *cache)
 
     def get_input_names(self):
         cache_num = len(self.model.decoders)

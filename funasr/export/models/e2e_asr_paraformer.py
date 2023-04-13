@@ -273,13 +273,13 @@ class ParaformerOnline_encoder_predictor(nn.Module):
         speech_lengths = torch.tensor([6, 30], dtype=torch.int32)
         return (speech, speech_lengths)
     
-    def get_dummy_inputs_txt(self, txt_file: str = "/mnt/workspace/data_fbank/0207/12345.wav.fea.txt"):
-        import numpy as np
-        fbank = np.loadtxt(txt_file)
-        fbank_lengths = np.array([fbank.shape[0], ], dtype=np.int32)
-        speech = torch.from_numpy(fbank[None, :, :].astype(np.float32))
-        speech_lengths = torch.from_numpy(fbank_lengths.astype(np.int32))
-        return (speech, speech_lengths)
+    # def get_dummy_inputs_txt(self, txt_file: str = "/mnt/workspace/data_fbank/0207/12345.wav.fea.txt"):
+    #     import numpy as np
+    #     fbank = np.loadtxt(txt_file)
+    #     fbank_lengths = np.array([fbank.shape[0], ], dtype=np.int32)
+    #     speech = torch.from_numpy(fbank[None, :, :].astype(np.float32))
+    #     speech_lengths = torch.from_numpy(fbank_lengths.astype(np.int32))
+    #     return (speech, speech_lengths)
     
     def get_input_names(self):
         return ['speech', 'speech_lengths']
@@ -329,12 +329,6 @@ class ParaformerOnline_decoder(nn.Module):
         onnx = False
         if "onnx" in kwargs:
             onnx = kwargs["onnx"]
-        # if isinstance(model.encoder, SANMEncoder):
-        #     self.encoder = SANMEncoder_export(model.encoder, onnx=onnx)
-        # elif isinstance(model.encoder, ConformerEncoder):
-        #     self.encoder = ConformerEncoder_export(model.encoder, onnx=onnx)
-        # if isinstance(model.predictor, CifPredictorV2):
-        #     self.predictor = CifPredictorV2_export(model.predictor)
 
         if isinstance(model.decoder, ParaformerDecoderSAN):
             self.decoder = ParaformerDecoderSAN_export(model.decoder, onnx=onnx)
