@@ -170,12 +170,13 @@ class ModelExport:
     def export(self,
                tag_name: str = 'damo/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-pytorch',
                mode: str = None,
+               model_revision: str = None,
                ):
         
         model_dir = tag_name
         if model_dir.startswith('damo'):
             from modelscope.hub.snapshot_download import snapshot_download
-            model_dir = snapshot_download(model_dir, cache_dir=self.cache_dir)
+            model_dir = snapshot_download(model_dir, cache_dir=self.cache_dir, revision=model_revision)
 
         if mode is None:
             import json
@@ -284,6 +285,7 @@ if __name__ == '__main__':
     parser.add_argument('--fallback-num', type=int, default=0, help='amp fallback number')
     parser.add_argument('--audio_in', type=str, default=None, help='["wav", "wav.scp"]')
     parser.add_argument('--calib_num', type=int, default=200, help='calib max num')
+    parser.add_argument('--model_revision', type=str, default=None, help='[model revision')
     args = parser.parse_args()
 
     export_model = ModelExport(
@@ -295,4 +297,4 @@ if __name__ == '__main__':
         audio_in=args.audio_in,
         calib_num=args.calib_num,
     )
-    export_model.export(args.model_name)
+    export_model.export(args.model_name, model_revision=args.model_revision)
