@@ -11,7 +11,7 @@ from typeguard import check_argument_types
 import numpy as np
 from funasr.modules.nets_utils import make_pad_mask
 from funasr.modules.attention import MultiHeadedAttention, MultiHeadedAttentionSANM, MultiHeadedAttentionSANMwithMask
-from funasr.modules.embedding import SinusoidalPositionEncoder
+from funasr.modules.embedding import SinusoidalPositionEncoder, SinusoidalPositionEncoderOnline
 from funasr.modules.layer_norm import LayerNorm
 from funasr.modules.multi_layer_conv import Conv1dLinear
 from funasr.modules.multi_layer_conv import MultiLayeredConv1d
@@ -180,6 +180,8 @@ class SANMEncoder(AbsEncoder):
                 self.embed = torch.nn.Linear(input_size, output_size)
         elif input_layer == "pe":
             self.embed = SinusoidalPositionEncoder()
+        elif input_layer == "pe_online":
+            self.embed = SinusoidalPositionEncoderOnline()
         else:
             raise ValueError("unknown input_layer: " + input_layer)
         self.normalize_before = normalize_before
@@ -282,6 +284,7 @@ class SANMEncoder(AbsEncoder):
         ilens: torch.Tensor,
         prev_states: torch.Tensor = None,
         ctc: CTC = None,
+        cache: dict = None,
     ) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
         """Embed positions in tensor.
 
@@ -312,7 +315,7 @@ class SANMEncoder(AbsEncoder):
                 )
             xs_pad, masks = self.embed(xs_pad, masks)
         else:
-            xs_pad = self.embed(xs_pad)
+            xs_pad = self.embed(xs_pad, cache)
 
         # xs_pad = self.dropout(xs_pad)
         encoder_outs = self.encoders0(xs_pad, masks)
@@ -347,47 +350,47 @@ class SANMEncoder(AbsEncoder):
             return (xs_pad, intermediate_outs), olens, None
         return xs_pad, olens, None
 
-    def forward_chunk(self,
-                      xs_pad: torch.Tensor,
-                      ilens: torch.Tensor,
-                      cache: dict = None,
-                      ctc: CTC = None,
-                      ):
-        xs_pad *= self.output_size() ** 0.5
-        if self.embed is None:
-            xs_pad = xs_pad
-        else:
-            xs_pad = self.embed.forward_chunk(xs_pad, cache)
-
-        encoder_outs = self.encoders0(xs_pad, None, None, None, None)
-        xs_pad, masks = encoder_outs[0], encoder_outs[1]
-        intermediate_outs = []
-        if len(self.interctc_layer_idx) == 0:
-            encoder_outs = self.encoders(xs_pad, None, None, None, None)
-            xs_pad, masks = encoder_outs[0], encoder_outs[1]
-        else:
-            for layer_idx, encoder_layer in enumerate(self.encoders):
-                encoder_outs = encoder_layer(xs_pad, None, None, None, None)
-                xs_pad, masks = encoder_outs[0], encoder_outs[1]
-                if layer_idx + 1 in self.interctc_layer_idx:
-                    encoder_out = xs_pad
-
-                    # intermediate outputs are also normalized
-                    if self.normalize_before:
-                        encoder_out = self.after_norm(encoder_out)
-
-                    intermediate_outs.append((layer_idx + 1, encoder_out))
-
-                    if self.interctc_use_conditioning:
-                        ctc_out = ctc.softmax(encoder_out)
-                        xs_pad = xs_pad + self.conditioning_layer(ctc_out)
-
-        if self.normalize_before:
-            xs_pad = self.after_norm(xs_pad)
-
-        if len(intermediate_outs) > 0:
-            return (xs_pad, intermediate_outs), None, None
-        return xs_pad, ilens, None
+    # def forward_chunk(self,
+    #                   xs_pad: torch.Tensor,
+    #                   ilens: torch.Tensor,
+    #                   cache: dict = None,
+    #                   ctc: CTC = None,
+    #                   ):
+    #     xs_pad *= self.output_size() ** 0.5
+    #     if self.embed is None:
+    #         xs_pad = xs_pad
+    #     else:
+    #         xs_pad = self.embed.forward(xs_pad, cache)
+    #
+    #     encoder_outs = self.encoders0(xs_pad, None, None, None, None)
+    #     xs_pad, masks = encoder_outs[0], encoder_outs[1]
+    #     intermediate_outs = []
+    #     if len(self.interctc_layer_idx) == 0:
+    #         encoder_outs = self.encoders(xs_pad, None, None, None, None)
+    #         xs_pad, masks = encoder_outs[0], encoder_outs[1]
+    #     else:
+    #         for layer_idx, encoder_layer in enumerate(self.encoders):
+    #             encoder_outs = encoder_layer(xs_pad, None, None, None, None)
+    #             xs_pad, masks = encoder_outs[0], encoder_outs[1]
+    #             if layer_idx + 1 in self.interctc_layer_idx:
+    #                 encoder_out = xs_pad
+    #
+    #                 # intermediate outputs are also normalized
+    #                 if self.normalize_before:
+    #                     encoder_out = self.after_norm(encoder_out)
+    #
+    #                 intermediate_outs.append((layer_idx + 1, encoder_out))
+    #
+    #                 if self.interctc_use_conditioning:
+    #                     ctc_out = ctc.softmax(encoder_out)
+    #                     xs_pad = xs_pad + self.conditioning_layer(ctc_out)
+    #
+    #     if self.normalize_before:
+    #         xs_pad = self.after_norm(xs_pad)
+    #
+    #     if len(intermediate_outs) > 0:
+    #         return (xs_pad, intermediate_outs), None, None
+    #     return xs_pad, ilens, None
 
     def gen_tf2torch_map_dict(self):
         tensor_name_prefix_torch = self.tf2torch_tensor_name_prefix_torch

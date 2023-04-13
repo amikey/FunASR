@@ -8,7 +8,8 @@ from funasr.export.models.modules.multihead_att import MultiHeadedAttentionSANM 
 from funasr.export.models.modules.encoder_layer import EncoderLayerSANM as EncoderLayerSANM_export
 from funasr.modules.positionwise_feed_forward import PositionwiseFeedForward
 from funasr.export.models.modules.feedforward import PositionwiseFeedForward as PositionwiseFeedForward_export
-
+from funasr.modules.embedding import SinusoidalPositionEncoderOnline
+# from funasr.export.models.modules.embedding import SinusoidalPositionEncoderOnline as SinusoidalPositionEncoderOnline_export
 
 class SANMEncoder(nn.Module):
     def __init__(
@@ -21,6 +22,8 @@ class SANMEncoder(nn.Module):
     ):
         super().__init__()
         self.embed = model.embed
+        if isinstance(self.embed, SinusoidalPositionEncoderOnline):
+            self.embed = None
         self.model = model
         self.feats_dim = feats_dim
         self._output_size = model._output_size
@@ -82,32 +85,6 @@ class SANMEncoder(nn.Module):
 
         return xs_pad, speech_lengths
 
-    def get_output_size(self):
-        return self.model.encoders[0].size
-
-    def get_dummy_inputs(self):
-        feats = torch.randn(1, 100, self.feats_dim)
-        return (feats)
-
-    def get_input_names(self):
-        return ['feats']
-
-    def get_output_names(self):
-        return ['encoder_out', 'encoder_out_lens', 'predictor_weight']
-
-    def get_dynamic_axes(self):
-        return {
-            'feats': {
-                1: 'feats_length'
-            },
-            'encoder_out': {
-                1: 'enc_out_length'
-            },
-            'predictor_weight':{
-                1: 'pre_out_length'
-            }
-
-        }
 
 
 class SANMVadEncoder(nn.Module):

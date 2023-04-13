@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# Copyright 2019 Shigeki Karita
-#  Apache 2.0  (http://www.apache.org/licenses/LICENSE-2.0)
-
 """Positional Encoding Module."""
 
 import math
@@ -434,15 +431,9 @@ class SinusoidalPositionEncoderOnline(SinusoidalPositionEncoder):
 
 
 
-    def forward(self, x, cache=None, **kwargs):
-        start_idx = 0
-        pad_left = 0
-        pad_right = 0
+    def forward(self, x, start_idx: int = 0, pad_left: int = 0, pad_right: int = 0):
+
         batch_size, timesteps, input_dim = x.size()
-        if cache is not None:
-            start_idx = cache["start_idx"]
-            pad_left = cache["pad_left"]
-            pad_right = cache["pad_right"]
         positions = torch.arange(1, timesteps+start_idx+1)[None, :]
         position_encoding = self.encode(positions, input_dim, x.dtype).to(x.device)
         outputs = x + position_encoding[:, start_idx: start_idx + timesteps]

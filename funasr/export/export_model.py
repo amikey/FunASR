@@ -34,6 +34,7 @@ class ModelExport:
         self.export_config = dict(
             feats_dim=560,
             onnx=False,
+            model_name="model",
         )
         print("output dir: {}".format(self.cache_dir))
         self.onnx = onnx
@@ -55,20 +56,21 @@ class ModelExport:
         export_dir = self.cache_dir / tag_name.replace(' ', '-')
         os.makedirs(export_dir, exist_ok=True)
 
-        # export encoder1
-        self.export_config["model_name"] = "model"
-        model = get_model(
+        models = get_model(
             model,
             self.export_config,
         )
-        model.eval()
-        # self._export_onnx(model, verbose, export_dir)
-        if self.onnx:
-            self._export_onnx(model, verbose, export_dir)
-        else:
-            self._export_torchscripts(model, verbose, export_dir)
-
-        print("output dir: {}".format(export_dir))
+        if not isinstance(models, True):
+            models = (models,)
+            
+        for i, model in enumerate(models):
+            model.eval()
+            if self.onnx:
+                self._export_onnx(model, verbose, export_dir)
+            else:
+                self._export_torchscripts(model, verbose, export_dir)
+    
+            print("output dir: {}".format(export_dir))
 
 
     def _torch_quantize(self, model):
@@ -218,6 +220,17 @@ class ModelExport:
             model, punc_train_args = PUNCTask.build_model_from_file(
                 punc_train_config, punc_model_file, 'cpu'
             )
+        elif mode.startswith('paraformer_streaming'):
+            from funasr.tasks.asr import ASRTaskParaformer as ASRTask
+            config = os.path.join(model_dir, 'config.yaml')
+            model_file = os.path.join(model_dir, 'model.pb')
+            cmvn_file = os.path.join(model_dir, 'am.mvn')
+            model, asr_train_args = ASRTask.build_model_from_file(
+                config, model_file, cmvn_file, 'cpu'
+            )
+            self.frontend = model.frontend
+            self.export_config["model_name"] = ['encoder', 'decoder']
+            
         self._export(model, tag_name)
             
 

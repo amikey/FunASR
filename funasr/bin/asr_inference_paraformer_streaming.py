@@ -222,7 +222,7 @@ class Speech2Text:
         batch = to_device(batch, device=self.device)
 
         # b. Forward Encoder
-        enc, enc_len = self.asr_model.encode_chunk(feats, feats_len, cache)
+        enc, enc_len = self.asr_model.encode_chunk(feats, feats_len, cache=cache)
         if isinstance(enc, tuple):
             enc = enc[0]
         # assert len(enc) == 1, len(enc)

@@ -472,7 +472,6 @@ class MultiHeadedAttentionSANMDecoder(nn.Module):
         self.fsmn_block = nn.Conv1d(n_feat, n_feat,
                                     kernel_size, stride=1, padding=0, groups=n_feat, bias=False)
         # padding
-        # padding
         left_padding = (kernel_size - 1) // 2
         if sanm_shfit > 0:
             left_padding = left_padding + sanm_shfit

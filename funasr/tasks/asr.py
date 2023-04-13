@@ -39,7 +39,7 @@ from funasr.models.decoder.transformer_decoder import ParaformerDecoderSAN
 from funasr.models.decoder.transformer_decoder import TransformerDecoder
 from funasr.models.decoder.contextual_decoder import ContextualParaformerDecoder
 from funasr.models.e2e_asr import ESPnetASRModel
-from funasr.models.e2e_asr_paraformer import Paraformer, ParaformerBert, BiCifParaformer, ContextualParaformer
+from funasr.models.e2e_asr_paraformer import Paraformer, ParaformerBert, BiCifParaformer, ContextualParaformer, ParaformerOnline
 from funasr.models.e2e_tp import TimestampPredictor
 from funasr.models.e2e_asr_mfcca import MFCCA
 from funasr.models.e2e_uni_asr import UniASR
@@ -126,6 +126,7 @@ model_choices = ClassChoices(
         contextual_paraformer=ContextualParaformer,
         mfcca=MFCCA,
         timestamp_prediction=TimestampPredictor,
+        paraformer_online=ParaformerOnline,
     ),
     type_check=AbsESPnetModel,
     default="asr",
