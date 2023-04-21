@@ -335,6 +335,29 @@ class WavFrontendOnline(WavFrontend):
         self.input_cache = None
         self.lfr_splice_cache = []
 
+
+class SinusoidalPositionEncoderOnline():
+    '''Streaming Positional encoding.
+    '''
+
+    def encode(self, positions: np.ndarray = None, depth: int = None, dtype: np.dtype = np.float32):
+        batch_size = positions.shape[0]
+        positions = positions.astype(dtype)
+        log_timescale_increment = np.log(np.array([10000], dtype=dtype)) / (depth / 2 - 1)
+        inv_timescales = np.exp(np.arange(depth / 2).astype(dtype) * (-log_timescale_increment))
+        inv_timescales = np.reshape(inv_timescales, [batch_size, -1])
+        scaled_time = np.reshape(positions, [1, -1, 1]) * np.reshape(inv_timescales, [1, 1, -1])
+        encoding = np.concatenate((np.sin(scaled_time), np.cos(scaled_time)), axis=2)
+        return encoding.astype(dtype)
+
+    def forward(self, x, start_idx=0):
+        batch_size, timesteps, input_dim = x.shape
+        positions = np.arange(1, timesteps+1+start_idx)[None, :]
+        position_encoding = self.encode(positions, input_dim, x.dtype)
+
+        return x + position_encoding[:, start_idx: start_idx + timesteps]
+
+
 def load_bytes(input):
     middle_data = np.frombuffer(input, dtype=np.int16)
     middle_data = np.asarray(middle_data)
@@ -349,7 +372,6 @@ def load_bytes(input):
     offset = i.min + abs_max
     array = np.frombuffer((middle_data.astype(dtype) - offset) / abs_max, dtype=np.float32)
     return array
-
 
 def test():
     path = "/nfs/zhifu.gzf/export/damo/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-pytorch/example/asr_example.wav"

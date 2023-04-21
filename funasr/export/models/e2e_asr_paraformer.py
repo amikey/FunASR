@@ -259,7 +259,7 @@ class ParaformerOnline_encoder_predictor(nn.Module):
         speech_lengths: torch.Tensor,
     ):
         # a. To device
-        batch = {"speech": speech, "speech_lengths": speech_lengths}
+        batch = {"speech": speech, "speech_lengths": speech_lengths, "online": True}
         # batch = to_device(batch, device=self.device)
         
         enc, enc_len = self.encoder(**batch)
