@@ -5,7 +5,7 @@ import os
 model_dir = "/home/haoneng.lhn/FunASR/export/damo/speech_paraformer_asr_nat-zh-cn-16k-common-vocab8404-online"
 wav_dir = "/home/haoneng.lhn/FunASR/export/damo/speech_paraformer_asr_nat-zh-cn-16k-common-vocab8404-online/example/asr_example.wav"
 
-chunk_size = [8, 8, 4]
+chunk_size = [5, 10, 5]
 model = Paraformer(model_dir, batch_size=1, chunk_size=chunk_size, intra_op_num_threads=4)
 
 ##online asr
