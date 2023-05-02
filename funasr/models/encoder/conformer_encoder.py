@@ -1081,9 +1081,15 @@ class ConformerChunkEncoder(AbsEncoder):
            x: Encoder outputs. (B, T_out, D_enc)
            x_len: Encoder outputs lenghts. (B,)
         """
-        short_status, limit_size = check_short_utt(
-            self.embed.subsampling_factor, x.size(1)
-        )
+
+        if hasattr(self.embed, 'subsampling_factor')
+            short_status, limit_size = check_short_utt(
+                self.embed.subsampling_factor, x.size(1)
+            )
+        else:
+            short_status, limit_size = check_short_utt(
+                1, x.size(1)
+            )
 
         if short_status:
             raise TooShortUttError(
@@ -1170,9 +1176,15 @@ class ConformerChunkEncoder(AbsEncoder):
         left_context: int = 32,
         right_context: int = 0,
     ) -> torch.Tensor:
-        short_status, limit_size = check_short_utt(
-            self.embed.subsampling_factor, x.size(1)
-        )
+
+        if hasattr(self.embed, 'subsampling_factor'):
+            short_status, limit_size = check_short_utt(
+                self.embed.subsampling_factor, x.size(1)
+            )
+        else:
+            short_status, limit_size = check_short_utt(
+                1, x.size(1)
+            )
 
         if short_status:
             raise TooShortUttError(
