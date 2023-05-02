@@ -913,6 +913,7 @@ class ConformerChunkEncoder(AbsEncoder):
         dropout_rate: float = 0.1,
         positional_dropout_rate: float = 0.1,
         attention_dropout_rate: float = 0.0,
+        input_layer: str = "StreamingConvInput",
         embed_vgg_like: bool = False,
         normalize_before: bool = True,
         concat_after: bool = False,
@@ -945,13 +946,27 @@ class ConformerChunkEncoder(AbsEncoder):
 
         assert check_argument_types()
 
-        self.embed = StreamingConvInput(
-            input_size,
-            output_size,
-            subsampling_factor,
-            vgg_like=embed_vgg_like,
-            output_size=output_size,
-        )
+        if input_layer == "linear":
+            self.embed = torch.nn.Sequential(
+                torch.nn.Linear(input_size, output_size),
+                torch.nn.LayerNorm(output_size),
+                torch.nn.Dropout(dropout_rate),
+                StreamingRelPositionalEncoding(output_size, positional_dropout_rate),
+            )
+        elif input_layer == "StreamingConvInput":
+            self.embed = StreamingConvInput(
+                input_size,
+                output_size,
+                subsampling_factor,
+                vgg_like=embed_vgg_like,
+                output_size=output_size,
+            )
+        elif input_layer is None:
+            self.embed = torch.nn.Sequential(
+                StreamingRelPositionalEncoding(output_size, positional_dropout_rate)
+            )
+        else:
+            raise ValueError("unknown input_layer: " + input_layer)
 
         self.pos_enc = StreamingRelPositionalEncoding(
             output_size,
@@ -960,7 +975,7 @@ class ConformerChunkEncoder(AbsEncoder):
 
         activation = get_activation(
             activation_type
-       )        
+        )
 
         pos_wise_args = (
             output_size,
