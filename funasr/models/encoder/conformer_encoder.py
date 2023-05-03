@@ -913,7 +913,6 @@ class ConformerChunkEncoder(AbsEncoder):
         dropout_rate: float = 0.1,
         positional_dropout_rate: float = 0.1,
         attention_dropout_rate: float = 0.0,
-        input_layer: str = "StreamingConvInput",
         embed_vgg_like: bool = False,
         normalize_before: bool = True,
         concat_after: bool = False,
@@ -946,27 +945,13 @@ class ConformerChunkEncoder(AbsEncoder):
 
         assert check_argument_types()
 
-        if input_layer == "linear":
-            self.embed = torch.nn.Sequential(
-                torch.nn.Linear(input_size, output_size),
-                torch.nn.LayerNorm(output_size),
-                torch.nn.Dropout(dropout_rate),
-                StreamingRelPositionalEncoding(output_size, positional_dropout_rate),
-            )
-        elif input_layer == "StreamingConvInput":
-            self.embed = StreamingConvInput(
-                input_size,
-                output_size,
-                subsampling_factor,
-                vgg_like=embed_vgg_like,
-                output_size=output_size,
-            )
-        elif input_layer is None:
-            self.embed = torch.nn.Sequential(
-                StreamingRelPositionalEncoding(output_size, positional_dropout_rate)
-            )
-        else:
-            raise ValueError("unknown input_layer: " + input_layer)
+        self.embed = StreamingConvInput(
+            input_size,
+            output_size,
+            subsampling_factor,
+            vgg_like=embed_vgg_like,
+            output_size=output_size,
+        )
 
         self.pos_enc = StreamingRelPositionalEncoding(
             output_size,
@@ -975,7 +960,7 @@ class ConformerChunkEncoder(AbsEncoder):
 
         activation = get_activation(
             activation_type
-        )
+       )        
 
         pos_wise_args = (
             output_size,
@@ -1081,15 +1066,9 @@ class ConformerChunkEncoder(AbsEncoder):
            x: Encoder outputs. (B, T_out, D_enc)
            x_len: Encoder outputs lenghts. (B,)
         """
-
-        if hasattr(self.embed, 'subsampling_factor'):
-            short_status, limit_size = check_short_utt(
-                self.embed.subsampling_factor, x.size(1)
-            )
-        else:
-            short_status, limit_size = check_short_utt(
-                1, x.size(1)
-            )
+        short_status, limit_size = check_short_utt(
+            self.embed.subsampling_factor, x.size(1)
+        )
 
         if short_status:
             raise TooShortUttError(
@@ -1103,12 +1082,7 @@ class ConformerChunkEncoder(AbsEncoder):
 
         if self.unified_model_training:
             chunk_size = self.default_chunk_size + torch.randint(-self.jitter_range, self.jitter_range+1, (1,)).item()
-            if (
-                isinstance(self.embed, StreamingConvInput)
-            ):
-                x, mask = self.embed(x, mask, chunk_size)
-            else:
-                x = self.embed(x)
+            x, mask = self.embed(x, mask, chunk_size)
             pos_enc = self.pos_enc(x)
             chunk_mask = make_chunk_mask(
                 x.size(1),
@@ -1146,14 +1120,7 @@ class ConformerChunkEncoder(AbsEncoder):
             else:
                 chunk_size = (chunk_size % self.short_chunk_size) + 1
 
-            #for linear input
-            if (
-                    isinstance(self.embed, StreamingConvInput)
-            ):
-                x, mask = self.embed(x, mask, chunk_size)
-            else:
-                x = self.embed(x)
-
+            x, mask = self.embed(x, mask, chunk_size)
             pos_enc = self.pos_enc(x)
 
             chunk_mask = make_chunk_mask(
@@ -1163,12 +1130,7 @@ class ConformerChunkEncoder(AbsEncoder):
                 device=x.device,
             )
         else:
-            if (
-                    isinstance(self.embed, StreamingConvInput)
-            ):
-                x, mask = self.embed(x, mask, None)
-            else:
-                x = self.embed(x)
+            x, mask = self.embed(x, mask, None)
             pos_enc = self.pos_enc(x)
             chunk_mask = None
         x = self.encoders(
@@ -1193,15 +1155,9 @@ class ConformerChunkEncoder(AbsEncoder):
         left_context: int = 32,
         right_context: int = 0,
     ) -> torch.Tensor:
-
-        if hasattr(self.embed, 'subsampling_factor'):
-            short_status, limit_size = check_short_utt(
-                self.embed.subsampling_factor, x.size(1)
-            )
-        else:
-            short_status, limit_size = check_short_utt(
-                1, x.size(1)
-            )
+        short_status, limit_size = check_short_utt(
+            self.embed.subsampling_factor, x.size(1)
+        )
 
         if short_status:
             raise TooShortUttError(
@@ -1212,14 +1168,8 @@ class ConformerChunkEncoder(AbsEncoder):
             )
 
         mask = make_source_mask(x_len)
-        #for linear input
-        if (
-                isinstance(self.embed, StreamingConvInput)
-        ):
-            x, mask = self.embed(x, mask, chunk_size)
-        else:
-            x = self.embed(x)
 
+        x, mask = self.embed(x, mask, chunk_size)
         pos_enc = self.pos_enc(x)
         chunk_mask = make_chunk_mask(
             x.size(1),
@@ -1260,12 +1210,7 @@ class ConformerChunkEncoder(AbsEncoder):
            x: Encoder outputs. (B, T_out, D_enc)
         """
         mask = make_source_mask(x_len)
-        if (
-                isinstance(self.embed, StreamingConvInput)
-        ):
-            x, mask = self.embed(x, mask, None)
-        else:
-            x = self.embed(x)
+        x, mask = self.embed(x, mask, None)
 
         if left_context > 0:
             processed_mask = (
