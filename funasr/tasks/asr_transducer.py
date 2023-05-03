@@ -96,8 +96,8 @@ class ASRTransducerTask(AbsTask):
         """
         group = parser.add_argument_group(description="Task related.")
 
-        required = parser.get_default("required")
-        required += ["token_list"]
+        #required = parser.get_default("required")
+        #required += ["token_list"]
 
         group.add_argument(
             "--token_list",
