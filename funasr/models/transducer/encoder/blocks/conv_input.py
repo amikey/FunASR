@@ -4,7 +4,7 @@ from typing import Optional, Tuple, Union
 
 import torch
 
-from espnet2.asr_transducer.utils import sub_factor_to_params
+from funasr.models.transducer.utils import sub_factor_to_params
 
 
 class ConvInput(torch.nn.Module):
