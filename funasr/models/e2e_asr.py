@@ -6,7 +6,7 @@ import torch
 from packaging.version import parse as V
 from typeguard import check_argument_types
 
-from funasr.models..ctc import CTC
+from funasr.models.ctc import CTC
 from funasr.models.decoder.abs_decoder import AbsDecoder
 from funasr.models.encoder.abs_encoder import AbsEncoder
 from funasr.models.frontend.abs_frontend import AbsFrontend
