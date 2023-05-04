@@ -582,12 +582,32 @@ class ASRTask(AbsTask):
             postencoder = None
 
         # 7. Decoder
-        decoder_class = decoder_choices.get_class(args.decoder)
-        decoder = decoder_class(
-            vocab_size=vocab_size,
-            encoder_output_size=encoder_output_size,
-            **args.decoder_conf,
-        )
+        if getattr(args, "decoder", None) is not None:
+            decoder_class = decoder_choices.get_class(args.decoder)
+
+            if args.decoder == "transducer":
+                decoder = decoder_class(
+                    vocab_size,
+                    embed_pad=0,
+                    **args.decoder_conf,
+                )
+
+                joint_network = JointNetwork(
+                    vocab_size,
+                    encoder.output_size(),
+                    decoder.dunits,
+                    **args.joint_net_conf,
+                )
+            else:
+                decoder = decoder_class(
+                    vocab_size=vocab_size,
+                    encoder_output_size=encoder_output_size,
+                    **args.decoder_conf,
+                )
+                joint_network = None
+        else:
+            decoder = None
+            joint_network = None
 
         # 8. CTC
         ctc = CTC(
@@ -609,6 +629,7 @@ class ASRTask(AbsTask):
             postencoder=postencoder,
             decoder=decoder,
             ctc=ctc,
+            joint_network=joint_network,
             token_list=token_list,
             **args.model_conf,
         )
