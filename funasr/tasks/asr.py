@@ -427,6 +427,13 @@ class ASRTask(AbsTask):
             default="13_15",
             help="The range of noise decibel level.",
         )
+        group.add_argument(
+            "--aux_ctc_tasks",
+            type=str,
+            nargs="+",
+            default=[],
+            help="Auxillary tasks to train on using CTC loss. ",
+        )
 
         for class_choices in cls.class_choices_list:
             # Append --<name> and --<name>_conf.
@@ -474,6 +481,9 @@ class ASRTask(AbsTask):
                 else "13_15",
                 speech_volume_normalize=args.speech_volume_normalize
                 if hasattr(args, "rir_scp")
+                else None,
+                aux_task_names=args.aux_ctc_tasks
+                if hasattr(args, "aux_ctc_tasks")
                 else None,
             )
         else:
