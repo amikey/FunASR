@@ -1,21 +1,19 @@
 """Error Calculator module for Transducer."""
 
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 import torch
 
+from funasr.models.decoder.abs_decoder import AbsDecoder
 from funasr.models.transducer.beam_search_transducer import BeamSearchTransducer
-from funasr.models.transducer.decoder.abs_decoder import AbsDecoder
-from funasr.models.transducer.joint_network import JointNetwork
 
 
-class ErrorCalculator:
+class ErrorCalculatorTransducer(object):
     """Calculate CER and WER for transducer models.
 
     Args:
         decoder: Decoder module.
-        joint_network: Joint Network module.
-        token_list: List of token units.
+        token_list: List of tokens.
         sym_space: Space symbol.
         sym_blank: Blank symbol.
         report_cer: Whether to compute CER.
@@ -26,20 +24,20 @@ class ErrorCalculator:
     def __init__(
         self,
         decoder: AbsDecoder,
-        joint_network: JointNetwork,
+        joint_network: torch.nn.Module,
         token_list: List[int],
         sym_space: str,
         sym_blank: str,
         report_cer: bool = False,
         report_wer: bool = False,
-    ) -> None:
-        """Construct an ErrorCalculatorTransducer object."""
+    ):
+        """Construct an ErrorCalculatorTransducer."""
         super().__init__()
 
         self.beam_search = BeamSearchTransducer(
             decoder=decoder,
             joint_network=joint_network,
-            beam_size=1,
+            beam_size=2,
             search_type="default",
             score_norm=False,
         )
@@ -53,10 +51,8 @@ class ErrorCalculator:
         self.report_cer = report_cer
         self.report_wer = report_wer
 
-    def __call__(
-        self, encoder_out: torch.Tensor, target: torch.Tensor
-    ) -> Tuple[Optional[float], Optional[float]]:
-        """Calculate sentence-level WER or/and CER score for Transducer model.
+    def __call__(self, encoder_out: torch.Tensor, target: torch.Tensor):
+        """Calculate sentence-level WER/CER score for Transducer model.
 
         Args:
             encoder_out: Encoder output sequences. (B, T, D_enc)
@@ -70,10 +66,14 @@ class ErrorCalculator:
         cer, wer = None, None
 
         batchsize = int(encoder_out.size(0))
+        batch_nbest = []
 
         encoder_out = encoder_out.to(next(self.decoder.parameters()).device)
 
-        batch_nbest = [self.beam_search(encoder_out[b]) for b in range(batchsize)]
+        for b in range(batchsize):
+            nbest_hyps = self.beam_search(encoder_out[b])
+            batch_nbest.append(nbest_hyps)
+
         pred = [nbest_hyp[0].yseq[1:] for nbest_hyp in batch_nbest]
 
         char_pred, char_target = self.convert_to_char(pred, target)
@@ -161,8 +161,8 @@ class ErrorCalculator:
         distances, lens = [], []
 
         for i, char_pred_i in enumerate(char_pred):
-            pred = char_pred_i.replace("▁", " ").split()
-            target = char_target[i].replace("▁", " ").split()
+            pred = char_pred_i.split()
+            target = char_target[i].split()
 
             distances.append(editdistance.eval(pred, target))
             lens.append(len(target))
