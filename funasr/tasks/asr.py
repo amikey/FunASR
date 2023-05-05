@@ -467,8 +467,6 @@ class ASRTask(AbsTask):
                 non_linguistic_symbols=args.non_linguistic_symbols,
                 text_cleaner=args.cleaner,
                 g2p_type=args.g2p,
-                split_with_space=args.split_with_space if hasattr(args, "split_with_space") else False,
-                seg_dict_file=args.seg_dict_file if hasattr(args, "seg_dict_file") else None,
                 # NOTE(kamo): Check attribute existence for backward compatibility
                 rir_scp=args.rir_scp if hasattr(args, "rir_scp") else None,
                 rir_apply_prob=args.rir_apply_prob
