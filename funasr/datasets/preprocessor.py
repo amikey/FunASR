@@ -171,7 +171,6 @@ class CommonPreprocessor(AbsPreprocessor):
                 space_symbol=space_symbol,
                 non_linguistic_symbols=non_linguistic_symbols,
                 g2p_type=g2p_type,
-                nonsplit_symbol=nonsplit_symbol,
             )
             if bpemodel not in ["whisper_en", "whisper_multilingual"]:
                 self.token_id_converter = TokenIDConverter(
