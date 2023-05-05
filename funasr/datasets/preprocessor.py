@@ -27,6 +27,46 @@ class AbsPreprocessor(ABC):
     ) -> Dict[str, np.ndarray]:
         raise NotImplementedError
 
+def forward_segment(text, dic):
+    word_list = []
+    i = 0
+    while i < len(text):
+        longest_word = text[i]
+        for j in range(i + 1, len(text) + 1):
+            word = text[i:j]
+            if word in dic:
+                if len(word) > len(longest_word):
+                    longest_word = word
+        word_list.append(longest_word)
+        i += len(longest_word)
+    return word_list
+
+def seg_tokenize(txt, seg_dict):
+    pattern = re.compile(r'^[\u4E00-\u9FA50-9]+$')
+    out_txt = ""
+    for word in txt:
+        word = word.lower()
+        if word in seg_dict:
+            out_txt += seg_dict[word] + " "
+        else:
+            if pattern.match(word):
+                for char in word:
+                    if char in seg_dict:
+                        out_txt += seg_dict[char] + " "
+                    else:
+                        out_txt += "<unk>" + " "
+            else:
+                out_txt += "<unk>" + " "
+    return out_txt.strip().split()
+
+def seg_tokenize_wo_pattern(txt, seg_dict):
+    out_txt = ""
+    for word in txt:
+        if word in seg_dict:
+            out_txt += seg_dict[word] + " "
+        else:
+            out_txt += "<unk>" + " "
+    return out_txt.strip().split()
 
 def framing(
     x,
@@ -148,6 +188,8 @@ class CommonPreprocessor(AbsPreprocessor):
         text_name: str = "text",
         fs: int = 0,
         nonsplit_symbol: Iterable[str] = None,
+        split_with_space: bool = False,
+        seg_dict_file: str = None,
     ):
         super().__init__(train)
         self.train = train
@@ -158,6 +200,17 @@ class CommonPreprocessor(AbsPreprocessor):
         self.noise_apply_prob = noise_apply_prob
         self.short_noise_thres = short_noise_thres
         self.aux_task_names = aux_task_names
+        self.split_with_space = split_with_space
+        self.seg_dict = None
+        if seg_dict_file is not None:
+            self.seg_dict = {}
+            with open(seg_dict_file) as f:
+                lines = f.readlines()
+            for line in lines:
+                s = line.strip().split()
+                key = s[0]
+                value = s[1:]
+                self.seg_dict[key] = " ".join(value)
 
         if token_type is not None:
             if token_list is None:
@@ -329,7 +382,12 @@ class CommonPreprocessor(AbsPreprocessor):
             if isinstance(text, np.ndarray):
                 return data
             text = self.text_cleaner(text)
-            tokens = self.tokenizer.text2tokens(text)
+            if self.split_with_space:
+                tokens = text.strip().split(" ")
+                if self.seg_dict is not None:
+                    tokens = seg_tokenize(tokens, self.seg_dict)
+            else:
+                tokens = self.tokenizer.text2tokens(text)
             text_ints = self.token_id_converter.tokens2ids(tokens)
             if len(text_ints) > 100:
                 logging.warning(
@@ -358,6 +416,68 @@ class CommonPreprocessor(AbsPreprocessor):
         data = self._text_process(data)
         return data
 
+class LMPreprocessor(CommonPreprocessor):
+    def __init__(
+            self,
+            train: bool,
+            token_type: str = None,
+            token_list: Union[Path, str, Iterable[str]] = None,
+            bpemodel: Union[Path, str, Iterable[str]] = None,
+            text_cleaner: Collection[str] = None,
+            g2p_type: str = None,
+            unk_symbol: str = "<unk>",
+            space_symbol: str = "<space>",
+            non_linguistic_symbols: Union[Path, str, Iterable[str]] = None,
+            delimiter: str = None,
+            rir_scp: str = None,
+            rir_apply_prob: float = 1.0,
+            noise_scp: str = None,
+            noise_apply_prob: float = 1.0,
+            noise_db_range: str = "3_10",
+            speech_volume_normalize: float = None,
+            speech_name: str = "speech",
+            text_name: str = "text",
+            split_with_space: bool = False,
+            seg_dict_file: str = None,
+    ):
+        super().__init__(train,
+                         token_type,
+                         token_list,
+                         bpemodel,
+                         text_cleaner,
+                         g2p_type,
+                         unk_symbol,
+                         space_symbol,
+                         non_linguistic_symbols,
+                         delimiter,
+                         rir_scp,
+                         rir_apply_prob,
+                         noise_scp,
+                         noise_apply_prob,
+                         noise_db_range,
+                         speech_volume_normalize,
+                         speech_name,
+                         text_name,
+                         split_with_space,
+                         seg_dict_file,
+                         )
+
+    def _text_process(
+            self, data: Dict[str, Union[str, np.ndarray]]
+    ) -> Dict[str, np.ndarray]:
+        if self.text_name in data and self.tokenizer is not None:
+            text = data[self.text_name]
+            text = self.text_cleaner(text)
+            if self.split_with_space:
+                tokens = text.strip().split(" ")
+                if self.seg_dict is not None:
+                    tokens = seg_tokenize_wo_pattern(tokens, self.seg_dict)
+            else:
+                tokens = self.tokenizer.text2tokens(text)
+            text_ints = self.token_id_converter.tokens2ids(tokens)
+            data[self.text_name] = np.array(text_ints, dtype=np.int64)
+        assert check_return_type(data)
+        return data
 
 class SLUPreprocessor(CommonPreprocessor):
     def __init__(
