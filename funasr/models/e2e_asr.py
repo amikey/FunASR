@@ -270,7 +270,6 @@ class ESPnetASRModel(AbsESPnetModel):
                         aux_data_key = self.aux_ctc[idx_key]
                         aux_data_tensor = kwargs.get(aux_data_key, None)
                         aux_data_lengths = kwargs.get(aux_data_key + "_lengths", None)
-
                         if aux_data_tensor is not None and aux_data_lengths is not None:
                             loss_ic, cer_ic = self._calc_ctc_loss(
                                 intermediate_out,
