@@ -59,7 +59,7 @@ def load_kaldi_cmvn(kaldi_cmvn_file):
         for i in range(feat_dim + 2, 2 * feat_dim + 2):
             variance.append(float(arr[i]))
 
-    means_stats = means
+    mean_stats = means
     var_stats = variance
     total_frames = count
 
