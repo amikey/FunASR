@@ -11,7 +11,6 @@ def get_parser():
 
     parser.add_argument(
         "--kaldi-cmvn-file",
-        "-a",
         default=False,
         required=True,
         type=str,
@@ -19,7 +18,13 @@ def get_parser():
     )
     parser.add_argument(
         "--json-statis-file",
-        "-o",
+        default=False,
+        required=True,
+        type=str,
+        help="output dir",
+    )
+    parser.add_argument(
+        "--am-mvn",
         default=False,
         required=True,
         type=str,
@@ -84,10 +89,28 @@ def main():
     args = parser.parse_args()
     kaldi_cmvn_file = args.kaldi_cmvn_file
     stats_json_file = args.json_statis_file
+    am_mvn = args.am_mvn
 
     cmvn, cmvn_info = load_kaldi_cmvn(kaldi_cmvn_file)
     with open(stats_json_file, 'w') as fout:
-        fout.write(json.dumps(cmvn_info))    
+        fout.write(json.dumps(cmvn_info))
+
+    mean = cmvn[0]
+    var = cmvn[1]
+    dims = mean.shape[0]
+    with open(args.am_mvn, 'w') as fout:
+        fout.write(
+            "<Nnet>" + "\n" + "<Splice> " + str(dims) + " " + str(dims) + '\n' + "[ 0 ]" + "\n" + "<AddShift> " + str(
+                dims) + " " + str(dims) + "\n")
+        mean_str = str(list(mean)).replace(',', '').replace('[', '[ ').replace(']', ' ]')
+        fout.write("<LearnRateCoef> 0 " + mean_str + '\n')
+        fout.write("<Rescale> " + str(dims) + " " + str(dims) + '\n')
+        var_str = str(list(var)).replace(',', '').replace('[', '[ ').replace(']', ' ]')
+        fout.write("<LearnRateCoef> 0 " + var_str + '\n')
+        fout.write("</Nnet>" + '\n')
+
+
+
 
 if __name__ == '__main__':
     main()
