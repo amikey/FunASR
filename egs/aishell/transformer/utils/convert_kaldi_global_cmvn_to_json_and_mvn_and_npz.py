@@ -126,7 +126,7 @@ def main():
         fout.write("</Nnet>" + '\n')
 
     #save npz file
-    np.savez(npz_file, npz_stats_info)
+    np.savez(npz_file, **npz_stats_info)
 
 if __name__ == '__main__':
     main()
