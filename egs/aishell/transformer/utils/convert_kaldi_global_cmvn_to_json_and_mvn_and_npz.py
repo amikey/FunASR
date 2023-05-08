@@ -30,6 +30,14 @@ def get_parser():
         type=str,
         help="save as am.mvn file",
     )
+    parser.add_argument(
+        "--espnet-npz-statis-file",
+        default=False,
+        required=True,
+        type=str,
+        help="save as npz file for espnet or funasr",
+    )
+
     return parser
 
 def load_kaldi_cmvn(kaldi_cmvn_file):
@@ -82,7 +90,14 @@ def load_kaldi_cmvn(kaldi_cmvn_file):
         'total_frames': total_frames
     }
 
-    return cmvn, cmvn_info
+    #espnet Npz file
+    npz_stats_info = {
+        'count': total_frames,
+        'sum': mean_stats,
+        'sum_square': var_stats
+    }
+
+    return cmvn, cmvn_info, npz_stats_info
 
 def main():
     parser = get_parser()
@@ -90,15 +105,16 @@ def main():
     kaldi_cmvn_file = args.kaldi_cmvn_file
     stats_json_file = args.json_statis_file
     am_mvn = args.am_mvn
+    npz_file = args.espnet_npz_statis_file
 
-    cmvn, cmvn_info = load_kaldi_cmvn(kaldi_cmvn_file)
+    cmvn, cmvn_info, npz_stats_info = load_kaldi_cmvn(kaldi_cmvn_file)
     with open(stats_json_file, 'w') as fout:
         fout.write(json.dumps(cmvn_info))
 
     mean = cmvn[0]
     var = cmvn[1]
     dims = mean.shape[0]
-    with open(args.am_mvn, 'w') as fout:
+    with open(am_mvn, 'w') as fout:
         fout.write(
             "<Nnet>" + "\n" + "<Splice> " + str(dims) + " " + str(dims) + '\n' + "[ 0 ]" + "\n" + "<AddShift> " + str(
                 dims) + " " + str(dims) + "\n")
@@ -109,8 +125,8 @@ def main():
         fout.write("<LearnRateCoef> 0 " + var_str + '\n')
         fout.write("</Nnet>" + '\n')
 
-
-
+    #save npz file
+    np.savez(npz_file, npz_stats_info)
 
 if __name__ == '__main__':
     main()
