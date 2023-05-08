@@ -409,7 +409,7 @@ class ASRTask(AbsTask):
             "--cmvn_file",
             type=str_or_none,
             default=None,
-            help="The file path of noise scp file.",
+            help="The file path of global cmvn file",
         )
         parser.add_argument(
             "--noise_scp",
