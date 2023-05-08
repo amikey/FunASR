@@ -21,14 +21,14 @@ def get_parser():
         default=False,
         required=True,
         type=str,
-        help="output dir",
+        help="ouput the mean and vars statis into a file",
     )
     parser.add_argument(
         "--am-mvn",
         default=False,
         required=True,
         type=str,
-        help="output dir",
+        help="save as am.mvn file",
     )
     return parser
 
