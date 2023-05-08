@@ -72,8 +72,8 @@ def load_kaldi_cmvn(kaldi_cmvn_file):
     cmvn = np.array([means, variance])
 
     cmvn_info = {
-        'mean_stats': list(mean_stats.tolist()),
-        'var_stats': list(var_stats.tolist()),
+        'mean_stats': mean_stats,
+        'var_stats': var_stats,
         'total_frames': total_frames
     }
 
