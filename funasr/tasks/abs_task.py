@@ -342,7 +342,7 @@ class AbsTask(ABC):
         group = parser.add_argument_group("distributed training related")
         group.add_argument(
             "--dist_backend",
-            default="nccl",
+            default="gloo",
             type=str,
             help="distributed backend",
         )
