@@ -1,8 +1,9 @@
 /**
  * Copyright FunASR (https://github.com/alibaba-damo-academy/FunASR). All Rights Reserved.
  * MIT License  (https://opensource.org/licenses/MIT)
- * Collaborators: zhuzizyf(China Telecom Shanghai)
 */
+
+#pragma once 
 
 #include <utility>
 #include <vector>
@@ -14,7 +15,7 @@
 #include <numeric>
 #include <cassert>
 
-
+namespace funasr {
 enum class VadStateMachine {
     kVadInStateStartPointNotDetected = 1,
     kVadInStateInSpeechSegment = 2,
@@ -780,5 +781,4 @@ private:
 
 };
 
-
-
+} // namespace funasr

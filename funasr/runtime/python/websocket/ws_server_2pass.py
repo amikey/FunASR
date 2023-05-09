@@ -53,14 +53,23 @@ if args.punc_model != "":
 else:
     inference_pipeline_punc = None
 
+inference_pipeline_asr_online = pipeline(
+    task=Tasks.auto_speech_recognition,
+    model=args.asr_model_online,
+    ngpu=args.ngpu,
+    ncpu=args.ncpu,
+    model_revision='v1.0.4')
+
 print("model loaded")
 
 async def ws_serve(websocket, path):
     frames = []
     frames_asr = []
+    frames_asr_online = []
     global websocket_users
     websocket_users.add(websocket)
     websocket.param_dict_asr = {}
+    websocket.param_dict_asr_online = {"cache": dict()}
     websocket.param_dict_vad = {'in_cache': dict(), "is_final": False}
     websocket.param_dict_punc = {'cache': list()}
     websocket.vad_pre_idx = 0
@@ -78,9 +87,18 @@ async def ws_serve(websocket, path):
 
                 is_speaking = message["is_speaking"]
                 websocket.param_dict_vad["is_final"] = not is_speaking
+                websocket.param_dict_asr_online["is_final"] = not is_speaking
+                websocket.param_dict_asr_online["chunk_size"] = message["chunk_size"]
                 websocket.wav_name = message.get("wav_name", "demo")
+                # asr online
+                frames_asr_online.append(audio)
+                if len(frames_asr_online) % message["chunk_interval"] == 0:
+                    audio_in = b"".join(frames_asr_online)
+                    await async_asr_online(websocket, audio_in)
+                    frames_asr_online = []
                 if speech_start:
                     frames_asr.append(audio)
+                # vad online
                 speech_start_i, speech_end_i = await async_vad(websocket, audio)
                 if speech_start_i:
                     speech_start = True
@@ -88,11 +106,14 @@ async def ws_serve(websocket, path):
                     frames_pre = frames[-beg_bias:]
                     frames_asr = []
                     frames_asr.extend(frames_pre)
+                # asr punc offline
                 if speech_end_i or not is_speaking:
                     audio_in = b"".join(frames_asr)
                     await async_asr(websocket, audio_in)
                     frames_asr = []
                     speech_start = False
+                    frames_asr_online = []
+                    websocket.param_dict_asr_online = {"cache": dict()}
                     if not is_speaking:
                         websocket.vad_pre_idx = 0
                         frames = []
@@ -137,12 +158,23 @@ async def async_asr(websocket, audio_in):
                 if inference_pipeline_punc is not None and 'text' in rec_result and len(rec_result["text"])>0:
                     rec_result = inference_pipeline_punc(text_in=rec_result['text'],
                                                          param_dict=websocket.param_dict_punc)
-                    # print(rec_result)
-                message = json.dumps({"mode": "offline", "text": rec_result["text"], "wav_name": websocket.wav_name})
+                    # print("offline", rec_result)
+                message = json.dumps({"mode": "2pass-offline", "text": rec_result["text"], "wav_name": websocket.wav_name})
                 await websocket.send(message)
-                
-                
- 
+
+
+async def async_asr_online(websocket, audio_in):
+    if len(audio_in) > 0:
+        audio_in = load_bytes(audio_in)
+        rec_result = inference_pipeline_asr_online(audio_in=audio_in,
+                                                   param_dict=websocket.param_dict_asr_online)
+        if websocket.param_dict_asr_online["is_final"]:
+            websocket.param_dict_asr_online["cache"] = dict()
+        if "text" in rec_result:
+            if rec_result["text"] != "sil" and rec_result["text"] != "waiting_for_more_voice":
+                # print("online", rec_result)
+                message = json.dumps({"mode": "2pass-online", "text": rec_result["text"], "wav_name": websocket.wav_name})
+                await websocket.send(message)
 
 
 start_server = websockets.serve(ws_serve, args.host, args.port, subprotocols=["binary"], ping_interval=None)
