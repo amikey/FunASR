@@ -1282,6 +1282,7 @@ class ConformerChunkEncoder(AbsEncoder):
         if right_context > 0:
             x = x[:, 0:-right_context, :]
 
-        if self.time_reduction_factor > 1:
-            x = x[:,::self.time_reduction_factor,:]
+        if (isinstance(self.embed, StreamingConvInput)):
+            if self.time_reduction_factor > 1:
+                x = x[:,::self.time_reduction_factor,:]
         return x
