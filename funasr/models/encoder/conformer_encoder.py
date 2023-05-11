@@ -1041,7 +1041,10 @@ class ConformerChunkEncoder(AbsEncoder):
         Returns:
             : Number of raw samples
         """
-        return self.embed.get_size_before_subsampling(size) * hop_length
+        if (isinstance(self.embed, StreamingConvInput)):
+            return self.embed.get_size_before_subsampling(size) * hop_length
+        else:
+            return size * hop_length
 
     def get_encoder_input_size(self, size: int) -> int:
         """Return the corresponding number of sample for a given chunk size, in frames.
@@ -1051,8 +1054,10 @@ class ConformerChunkEncoder(AbsEncoder):
         Returns:
             : Number of raw samples
         """
-        return self.embed.get_size_before_subsampling(size)
-
+        if (isinstance(self.embed, StreamingConvInput)):
+            return self.embed.get_size_before_subsampling(size)
+        else:
+            return size
 
     def reset_streaming_cache(self, left_context: int, device: torch.device) -> None:
         """Initialize/Reset encoder streaming cache.
