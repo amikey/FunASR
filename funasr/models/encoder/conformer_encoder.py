@@ -940,6 +940,7 @@ class ConformerChunkEncoder(AbsEncoder):
         default_chunk_size: int = 16,
         jitter_range: int = 4,
         subsampling_factor: int = 1,
+        padding_idx: int = -1,
     ) -> None:
         """Construct an Encoder object."""
         super().__init__()
@@ -952,6 +953,10 @@ class ConformerChunkEncoder(AbsEncoder):
                 torch.nn.Linear(input_size, output_size),
                 torch.nn.LayerNorm(output_size),
                 torch.nn.Dropout(dropout_rate),
+            )
+        elif input_layer == 'embed':
+            self.embed = torch.nn.Sequential(
+                torch.nn.Embedding(input_size, output_size, padding_idx=padding_idx),
             )
         else:
             self.embed = StreamingConvInput(
@@ -997,7 +1002,6 @@ class ConformerChunkEncoder(AbsEncoder):
             attention_dropout_rate,
             simplified_att_score,
         )
-
 
         fn_modules = []
         for _ in range(num_blocks):
