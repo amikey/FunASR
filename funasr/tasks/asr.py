@@ -103,7 +103,7 @@ specaug_choices = ClassChoices(
     name="specaug",
     classes=dict(
         specaug=SpecAug,
-        specaug_lfr=SpecAugLFR,
+        specaug_lfr=FSpecAugLR,
     ),
     type_check=AbsSpecAug,
     default=None,
@@ -1715,7 +1715,7 @@ class ASRTransducerTask(AbsTask):
 
         # 7. Build model
 
-        if encoder.unified_model_training:
+        if hasattr(encoder, 'unified_model_training') and encoder.unified_model_training:
             model = UnifiedTransducerModel(
                 vocab_size=vocab_size,
                 token_list=token_list,
