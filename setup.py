@@ -36,7 +36,7 @@ requirements = {
         # "ci_sdr",
         "pytorch_wpe",
         "editdistance==0.5.2",
-        "tensorboard==1.15",
+        "tensorboard",
         "g2p",
         # PAI
         "oss2",
@@ -45,7 +45,7 @@ requirements = {
         "edit-distance",
         # textgrid
         "textgrid",
-        "protobuf==3.20.0",
+        "protobuf",
     ],
     # train: The modules invoked when training only.
     "train": [
@@ -138,7 +138,7 @@ setup(
     setup_requires=setup_requires,
     tests_require=tests_require,
     extras_require=extras_require,
-    python_requires=">=3.7.0",
+    python_requires=">=3.6.0",
     classifiers=[
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
