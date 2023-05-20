@@ -84,6 +84,7 @@ class ArkDataLoader(AbsIterFactory):
             bpe_tokenizer = SentencepiecesTokenizer(bpemodel_file)
         else:
             bpe_tokenizer = None
+
         self.dataset = Dataset(data_list, symbol_table, seg_dict, punc_dict, bpe_tokenizer,
                                self.dataset_conf, self.frontend_conf, mode=mode, batch_mode=batch_mode)
 

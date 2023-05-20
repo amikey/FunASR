@@ -36,7 +36,7 @@ requirements = {
         # "ci_sdr",
         "pytorch_wpe",
         "editdistance==0.5.2",
-        "tensorboard==1.15",
+        "tensorboard",
         "g2p",
         # PAI
         "oss2",
@@ -45,7 +45,7 @@ requirements = {
         "edit-distance",
         # textgrid
         "textgrid",
-        "protobuf==3.20.0",
+        "protobuf",
     ],
     # train: The modules invoked when training only.
     "train": [

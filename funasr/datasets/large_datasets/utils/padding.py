@@ -12,12 +12,16 @@ def padding(data, float_pad_value=0.0, int_pad_value=-1):
 
     batch = {}
     data_names = data[0].keys()
+    print(data_names)
     for data_name in data_names:
         if data_name == "key" or data_name == "sampling_rate":
             continue
         else:
             if data_name != 'hotword_indxs':
-                if data[0][data_name].dtype.kind == "i":
+                if data_name == "lid_utt":
+                    pad_value = int_pad_value
+                    tensor_type = torch.int64
+                elif data[0][data_name].dtype.kind == "i":
                     pad_value = int_pad_value
                     tensor_type = torch.int64
                 else:
