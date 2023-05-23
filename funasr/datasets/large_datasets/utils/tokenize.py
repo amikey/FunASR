@@ -47,6 +47,9 @@ def tokenize(data,
     token = []
     vad = -2
 
+    for k in data.items():
+        print(k)
+
     if bpe_tokenizer is not None:
         text = bpe_tokenizer.text2tokens("".join(text))
 
@@ -80,6 +83,15 @@ def tokenize(data,
             else:
                 punc_token.append(punc_dict["_"])
         data["punc"] =  np.array(punc_token)
+
+    if "lid_utt" in data:
+        lid_token = []
+        for lid in data["lid_utt"]:
+            if lid in vocab:
+                lid_token.append(vocab[lid])
+            else:
+                lid_token.append(vocab['<unk>'])
+        data["lid_utt"] = lid_token
 
     data["text"] = np.array(token)
     if vad is not -2:
