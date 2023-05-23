@@ -377,10 +377,6 @@ class CommonPreprocessor(AbsPreprocessor):
     def _text_process(
         self, data: Dict[str, Union[str, np.ndarray]]
     ) -> Dict[str, np.ndarray]:
-        print("Text Processing")
-        print(self.text_name)
-        print(self.tokenizer)
-        print("Ennd Text Processing")
 
         if self.text_name in data and self.tokenizer is not None:
             text = data[self.text_name]

@@ -47,9 +47,6 @@ def tokenize(data,
     token = []
     vad = -2
 
-    for k in data.items():
-        print(k)
-
     if bpe_tokenizer is not None:
         text = bpe_tokenizer.text2tokens("".join(text))
 
