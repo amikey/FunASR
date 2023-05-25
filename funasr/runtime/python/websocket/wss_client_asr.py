@@ -58,6 +58,10 @@ parser.add_argument("--ssl",
                     type=int,
                     default=1,
                     help="1 for ssl connect, 0 for no ssl")
+parser.add_argument("--mode",
+                    type=str,
+                    default="2pass",
+                    help="offline, online, 2pass")
 
 args = parser.parse_args()
 args.chunk_size = [int(x) for x in args.chunk_size.split(",")]
@@ -90,7 +94,7 @@ async def record_microphone():
                     input=True,
                     frames_per_buffer=CHUNK)
 
-    message = json.dumps({"chunk_size": args.chunk_size, "chunk_interval": args.chunk_interval, "wav_name": "microphone", "is_speaking": True})
+    message = json.dumps({"mode": args.mode, "chunk_size": args.chunk_size, "chunk_interval": args.chunk_interval, "wav_name": "microphone", "is_speaking": True})
     voices.put(message)
     while True:
 
@@ -132,7 +136,7 @@ async def record_from_scp(chunk_begin,chunk_size):
         # print(stride)
         
         # send first time
-        message = json.dumps({"chunk_size": args.chunk_size, "chunk_interval": args.chunk_interval, "wav_name": wav_name,"is_speaking": True})
+        message = json.dumps({"mode": args.mode, "chunk_size": args.chunk_size, "chunk_interval": args.chunk_interval, "wav_name": wav_name,"is_speaking": True})
         voices.put(message)
         is_speaking = True
         for i in range(chunk_num):
