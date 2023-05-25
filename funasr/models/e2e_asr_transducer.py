@@ -108,11 +108,11 @@ class TransducerModel(FunASRModel):
         self.use_auxiliary_lm_loss = auxiliary_lm_loss_weight > 0
 
         if self.use_auxiliary_ctc:
-            self.ctc_lin = torch.nn.Linear(encoder.output_size, vocab_size)
+            self.ctc_lin = torch.nn.Linear(encoder.output_size(), vocab_size)
             self.ctc_dropout_rate = auxiliary_ctc_dropout_rate
 
         if self.use_auxiliary_lm_loss:
-            self.lm_lin = torch.nn.Linear(decoder.output_size, vocab_size)
+            self.lm_lin = torch.nn.Linear(decoder.output_size(), vocab_size)
             self.lm_loss_smoothing = auxiliary_lm_loss_smoothing
 
         self.transducer_weight = transducer_weight
@@ -577,7 +577,7 @@ class UnifiedTransducerModel(FunASRModel):
         self.use_auxiliary_lm_loss = auxiliary_lm_loss_weight > 0
 
         if self.use_auxiliary_ctc:
-            self.ctc_lin = torch.nn.Linear(encoder.output_size, vocab_size)
+            self.ctc_lin = torch.nn.Linear(encoder.output_size(), vocab_size)
             self.ctc_dropout_rate = auxiliary_ctc_dropout_rate
 
         if self.use_auxiliary_att:
@@ -591,7 +591,7 @@ class UnifiedTransducerModel(FunASRModel):
             )
 
         if self.use_auxiliary_lm_loss:
-            self.lm_lin = torch.nn.Linear(decoder.output_size, vocab_size)
+            self.lm_lin = torch.nn.Linear(decoder.output_size(), vocab_size)
             self.lm_loss_smoothing = auxiliary_lm_loss_smoothing
 
         self.transducer_weight = transducer_weight
