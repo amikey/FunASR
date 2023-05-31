@@ -46,7 +46,8 @@ train_set=train
 valid_set=dev
 test_sets="dev test"
 
-asr_config=conf/train_asr_transformer.yaml
+#asr_config=conf/train_asr_transformer.yaml
+asr_config=conf/train_asr_transformer2.yaml
 model_dir="baseline_$(basename "${asr_config}" .yaml)_${lang}_${token_type}_${tag}"
 
 inference_config=conf/decode_asr_transformer.yaml
