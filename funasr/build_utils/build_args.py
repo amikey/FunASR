@@ -75,6 +75,12 @@ def build_args(args, parser, extra_task_params):
             default=None,
             help="The number of input dimension of the feature",
         )
+        task_parser.add_argument(
+            "--feature_transform",
+            action=NestedDictAction,
+            default=dict(),
+            help=f"The feature transform for original feature, include cmvn and lfr",
+        )
 
     elif args.task_name == "diar":
         from funasr.build_utils.build_diar_model import class_choices_list

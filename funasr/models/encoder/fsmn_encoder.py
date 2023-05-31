@@ -212,9 +212,12 @@ class FSMN(nn.Module):
         x4 = self.fsmn(x3, in_cache)  # self.in_cache will update automatically in self.fsmn
         x5 = self.out_linear1(x4)
         x6 = self.out_linear2(x5)
-        x7 = self.softmax(x6)
+        if not self.training:
+            output = self.softmax(x6)
+        else:
+            output = x6
 
-        return x7
+        return output
 
 
 '''
