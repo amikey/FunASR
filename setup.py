@@ -27,6 +27,7 @@ requirements = {
         "nltk>=3.4.5",
         # ASR
         "sentencepiece",
+        "loralib",
         # "ctc-segmentation<1.8,>=1.6.6",
         # TTS
         # "pyworld>=0.2.10",
