@@ -82,6 +82,42 @@ def common_collate_fn(
     assert check_return_type(output)
     return output
 
+
+def common_collate_fn_without_padding(
+        data: Collection[Tuple[str, Dict[str, np.ndarray]]],
+        not_sequence: Collection[str] = (),
+) -> Tuple[List[str], Dict[str, torch.Tensor]]:
+    """Concatenate ndarray-list to an array and convert to torch.Tensor.
+    """
+    assert check_argument_types()
+    uttids = [u for u, _ in data]
+    data = [d for _, d in data]
+
+    assert all(set(data[0]) == set(d) for d in data), "dict-keys mismatching"
+    assert all(
+        not k.endswith("_lengths") for k in data[0]
+    ), f"*_lengths is reserved: {list(data[0])}"
+
+    output = {}
+    for key in data[0]:
+        array_list = [d[key] for d in data]
+        tensor_list = [torch.from_numpy(a).to(torch.float32) for a in array_list]
+        output[key] = tensor_list
+
+        if key not in not_sequence:
+            if key == "speaker_labels":
+                lens = torch.tensor([d[key].shape[1] for d in data], dtype=torch.long)
+                output["orders"] = [torch.tensor(np.random.shuffle(np.arange(d[key].shape[0])), dtype=torch.long) for d
+                                    in data]
+            else:
+                lens = torch.tensor([d[key].shape[0] for d in data], dtype=torch.long)
+            output[key + "_lengths"] = lens
+
+    output = (uttids, output)
+    assert check_return_type(output)
+    return output
+
+
 def crop_to_max_size(feature, target_size):
     size = len(feature)
     diff = size - target_size

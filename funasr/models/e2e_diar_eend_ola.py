@@ -8,12 +8,15 @@ from typing import Dict, List, Tuple
 import numpy as np
 import torch
 import torch.nn as  nn
+import torch.nn.functional as F
 from typeguard import check_argument_types
 
 from funasr.models.base_model import FunASRModel
 from funasr.models.frontend.wav_frontend import WavFrontendMel23
 from funasr.modules.eend_ola.encoder import EENDOLATransformerEncoder
 from funasr.modules.eend_ola.encoder_decoder_attractor import EncoderDecoderAttractor
+from funasr.modules.eend_ola.utils.losses import batch_pit_n_speaker_loss, standard_loss
+from funasr.modules.eend_ola.utils.power import create_powerlabel
 from funasr.modules.eend_ola.utils.power import generate_mapping_dict
 from funasr.torch_utils.device_funcs import force_gatherable
 
@@ -31,6 +34,29 @@ def pad_attractor(att, max_n_speakers):
     if C < max_n_speakers:
         att = torch.cat([att, torch.zeros(max_n_speakers - C, D).to(torch.float32).to(att.device)], dim=0)
     return att
+
+
+def pad_labels(ts, out_size):
+    for i, t in enumerate(ts):
+        if t.shape[1] < out_size:
+            ts[i] = F.pad(
+                t,
+                (0, out_size - t.shape[1], 0, 0),
+                mode='constant',
+                value=0.
+            )
+    return ts
+
+
+def pad_results(ys, out_size):
+    ys_padded = []
+    for i, y in enumerate(ys):
+        if y.shape[1] < out_size:
+            ys_padded.append(
+                torch.cat([y, torch.zeros(y.shape[0], out_size - y.shape[1]).to(torch.float32).to(y.device)], dim=1))
+        else:
+            ys_padded.append(y)
+    return ys_padded
 
 
 class DiarEENDOLAModel(FunASRModel):
@@ -86,22 +112,20 @@ class DiarEENDOLAModel(FunASRModel):
     def forward(
             self,
             speech: List[torch.Tensor],
-            speech_lengths: List[torch.Tensor],
+            speech_lengths: List[torch.Tensor],  # num_frames of each sample
             speaker_labels: List[torch.Tensor],
-            speaker_labels_length: List[torch.Tensor],
+            speaker_labels_length: List[torch.Tensor],  # num_speakers of each sample
+            orders: List[torch.Tensor],
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], torch.Tensor]:
 
         # Check that batch_size is unified
         assert (
-                speech.shape[0]
-                == speech_lengths.shape[0]
-                == speaker_labels.shape[0]
-                == speaker_labels_length.shape[0]
-        ), (speech.shape, speech_lengths.shape, speaker_labels.shape, speaker_labels_length.shape)
-        batch_size = speech.shape[0]
-
-        # for data-parallel
-        text = speaker_labels[:, : speaker_labels_length.max()]
+                len(speech)
+                == len(speech_lengths)
+                == len(speaker_labels)
+                == len(speaker_labels_length)
+        ), (len(speech), len(speech_lengths), len(speaker_labels), len(speaker_labels_length))
+        batch_size = len(speech)
 
         # Encoder
         speech = [s[:s_len] for s, s_len in zip(speech, speech_lengths)]
@@ -109,65 +133,33 @@ class DiarEENDOLAModel(FunASRModel):
 
         # Encoder-decoder attractor
         attractor_loss, attractors = self.encoder_decoder_attractor([e[order] for e, order in zip(encoder_out, orders)],
-                                                                    n_speakers)
+                                                                    speaker_labels_length)
+        speaker_logits = [torch.matmul(e, att.permute(1, 0)) for e, att in zip(encoder_out, attractors)]
 
-        loss_att, acc_att, cer_att, wer_att = None, None, None, None
-        loss_ctc, cer_ctc = None, None
+        # pit loss
+        max_n_speakers = max(speaker_labels_length)
+        speaker_labels_padded = pad_labels(speaker_labels, max_n_speakers)  # [(T1, C_max), ..., (TB, C_max)]
+        speaker_logits_padded = pad_results(speaker_logits, max_n_speakers)  # [(T1, C_max), ..., (TB, C_max)]
+        _, pit_speaker_labels = batch_pit_n_speaker_loss(speaker_logits_padded, speaker_labels_padded,
+                                                         speaker_labels_length)
+        pit_loss = standard_loss(speaker_logits, pit_speaker_labels)
+
+        # pse loss
+        with torch.no_grad():
+            power_ts = [create_powerlabel(label.cpu().numpy(), self.mapping_dict, self.max_n_speaker).
+                            to(encoder_out[0].device, non_blocking=True) for label in pit_speaker_labels]
+        pad_attractors = [pad_attractor(att, self.max_n_speaker) for att in attractors]
+        pse_speaker_logits = [torch.matmul(e, pad_att.permute(1, 0)) for e, pad_att in zip(encoder_out, pad_attractors)]
+        pse_speaker_logits = self.cal_postnet(pse_speaker_logits, self.max_n_speaker)
+        pse_loss = self.cal_power_loss(pse_speaker_logits, power_ts)
+
+        loss = pse_loss + pit_loss + self.attractor_loss_weight * attractor_loss
+
         stats = dict()
-
-        # 1. CTC branch
-        if self.ctc_weight != 0.0:
-            loss_ctc, cer_ctc = self._calc_ctc_loss(
-                encoder_out, encoder_out_lens, text, text_lengths
-            )
-
-            # Collect CTC branch stats
-            stats["loss_ctc"] = loss_ctc.detach() if loss_ctc is not None else None
-            stats["cer_ctc"] = cer_ctc
-
-        # Intermediate CTC (optional)
-        loss_interctc = 0.0
-        if self.interctc_weight != 0.0 and intermediate_outs is not None:
-            for layer_idx, intermediate_out in intermediate_outs:
-                # we assume intermediate_out has the same length & padding
-                # as those of encoder_out
-                loss_ic, cer_ic = self._calc_ctc_loss(
-                    intermediate_out, encoder_out_lens, text, text_lengths
-                )
-                loss_interctc = loss_interctc + loss_ic
-
-                # Collect Intermedaite CTC stats
-                stats["loss_interctc_layer{}".format(layer_idx)] = (
-                    loss_ic.detach() if loss_ic is not None else None
-                )
-                stats["cer_interctc_layer{}".format(layer_idx)] = cer_ic
-
-            loss_interctc = loss_interctc / len(intermediate_outs)
-
-            # calculate whole encoder loss
-            loss_ctc = (
-                               1 - self.interctc_weight
-                       ) * loss_ctc + self.interctc_weight * loss_interctc
-
-        # 2b. Attention decoder branch
-        if self.ctc_weight != 1.0:
-            loss_att, acc_att, cer_att, wer_att = self._calc_att_loss(
-                encoder_out, encoder_out_lens, text, text_lengths
-            )
-
-        # 3. CTC-Att loss definition
-        if self.ctc_weight == 0.0:
-            loss = loss_att
-        elif self.ctc_weight == 1.0:
-            loss = loss_ctc
-        else:
-            loss = self.ctc_weight * loss_ctc + (1 - self.ctc_weight) * loss_att
-
-        # Collect Attn branch stats
-        stats["loss_att"] = loss_att.detach() if loss_att is not None else None
-        stats["acc"] = acc_att
-        stats["cer"] = cer_att
-        stats["wer"] = wer_att
+        stats["pse_loss"] = pse_loss.detach()
+        stats["pit_loss"] = pit_loss.detach()
+        stats["attractor_loss"] = attractor_loss.detach()
+        stats["batch_size"] = batch_size
 
         # Collect total loss stats
         stats["loss"] = torch.clone(loss.detach())
