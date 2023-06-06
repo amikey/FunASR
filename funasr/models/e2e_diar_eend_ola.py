@@ -12,7 +12,7 @@ from funasr.models.base_model import FunASRModel
 from funasr.models.frontend.wav_frontend import WavFrontendMel23
 from funasr.modules.eend_ola.encoder import EENDOLATransformerEncoder
 from funasr.modules.eend_ola.encoder_decoder_attractor import EncoderDecoderAttractor
-from funasr.modules.eend_ola.utils.losses import batch_pit_n_speaker_loss, standard_loss
+from funasr.modules.eend_ola.utils.losses import batch_pit_n_speaker_loss, standard_loss, cal_power_loss
 from funasr.modules.eend_ola.utils.power import create_powerlabel
 from funasr.modules.eend_ola.utils.power import generate_mapping_dict
 from funasr.torch_utils.device_funcs import force_gatherable
@@ -148,7 +148,7 @@ class DiarEENDOLAModel(FunASRModel):
         pad_attractors = [pad_attractor(att, self.max_n_speaker) for att in attractors]
         pse_speaker_logits = [torch.matmul(e, pad_att.permute(1, 0)) for e, pad_att in zip(encoder_out, pad_attractors)]
         pse_speaker_logits = self.forward_post_net(pse_speaker_logits, speech_lengths)
-        pse_loss = self.cal_power_loss(pse_speaker_logits, power_ts)
+        pse_loss = cal_power_loss(pse_speaker_logits, power_ts)
 
         loss = pse_loss + pit_loss + self.attractor_loss_weight * attractor_loss
 

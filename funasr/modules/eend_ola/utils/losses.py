@@ -65,3 +65,12 @@ def batch_pit_n_speaker_loss(ys, ts, n_speakers_list):
     labels_perm = [t[:, :n_speakers] for t, n_speakers in zip(labels_perm, n_speakers_list)]
 
     return min_loss, labels_perm
+
+def cal_power_loss(logits, power_ts):
+    losses = [F.cross_entropy(input=logit, target=power_t.to(torch.long)) * len(logit) for logit, power_t in
+              zip(logits, power_ts)]
+    loss = torch.sum(torch.stack(losses))
+    n_frames = torch.from_numpy(np.array(np.sum([power_t.shape[0] for power_t in power_ts]))).to(torch.float32).to(
+        power_ts[0].device)
+    loss = loss / n_frames
+    return loss
