@@ -47,7 +47,7 @@ class CommonCollateFn:
                 not_sequence=self.not_sequence,
             )
         else:
-            return common_collate_fn(data)
+            return common_collate_fn_without_padding(data)
 
 
 def common_collate_fn(
