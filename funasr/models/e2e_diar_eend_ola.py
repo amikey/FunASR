@@ -3,20 +3,19 @@
 
 from contextlib import contextmanager
 from distutils.version import LooseVersion
-from typing import Dict
-from typing import Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 import torch
 import torch.nn as  nn
 from typeguard import check_argument_types
 
+from funasr.models.base_model import FunASRModel
 from funasr.models.frontend.wav_frontend import WavFrontendMel23
 from funasr.modules.eend_ola.encoder import EENDOLATransformerEncoder
 from funasr.modules.eend_ola.encoder_decoder_attractor import EncoderDecoderAttractor
 from funasr.modules.eend_ola.utils.power import generate_mapping_dict
 from funasr.torch_utils.device_funcs import force_gatherable
-from funasr.models.base_model import FunASRModel
 
 if LooseVersion(torch.__version__) >= LooseVersion("1.6.0"):
     pass
@@ -53,7 +52,7 @@ class DiarEENDOLAModel(FunASRModel):
         super().__init__()
         self.frontend = frontend
         self.enc = encoder
-        self.eda = encoder_decoder_attractor
+        self.encoder_decoder_attractor = encoder_decoder_attractor
         self.attractor_loss_weight = attractor_loss_weight
         self.max_n_speaker = max_n_speaker
         if mapping_dict is None:
@@ -76,7 +75,8 @@ class DiarEENDOLAModel(FunASRModel):
     def forward_post_net(self, logits, ilens):
         maxlen = torch.max(ilens).to(torch.int).item()
         logits = nn.utils.rnn.pad_sequence(logits, batch_first=True, padding_value=-1)
-        logits = nn.utils.rnn.pack_padded_sequence(logits, ilens.cpu().to(torch.int64), batch_first=True, enforce_sorted=False)
+        logits = nn.utils.rnn.pack_padded_sequence(logits, ilens.cpu().to(torch.int64), batch_first=True,
+                                                   enforce_sorted=False)
         outputs, (_, _) = self.postnet(logits)
         outputs = nn.utils.rnn.pad_packed_sequence(outputs, batch_first=True, padding_value=-1, total_length=maxlen)[0]
         outputs = [output[:ilens[i].to(torch.int).item()] for i, output in enumerate(outputs)]
@@ -85,37 +85,31 @@ class DiarEENDOLAModel(FunASRModel):
 
     def forward(
             self,
-            speech: torch.Tensor,
-            speech_lengths: torch.Tensor,
-            text: torch.Tensor,
-            text_lengths: torch.Tensor,
+            speech: List[torch.Tensor],
+            speech_lengths: List[torch.Tensor],
+            speaker_labels: List[torch.Tensor],
+            speaker_labels_length: List[torch.Tensor],
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], torch.Tensor]:
-        """Frontend + Encoder + Decoder + Calc loss
-        Args:
-            speech: (Batch, Length, ...)
-            speech_lengths: (Batch, )
-            text: (Batch, Length)
-            text_lengths: (Batch,)
-        """
-        assert text_lengths.dim() == 1, text_lengths.shape
+
         # Check that batch_size is unified
         assert (
                 speech.shape[0]
                 == speech_lengths.shape[0]
-                == text.shape[0]
-                == text_lengths.shape[0]
-        ), (speech.shape, speech_lengths.shape, text.shape, text_lengths.shape)
+                == speaker_labels.shape[0]
+                == speaker_labels_length.shape[0]
+        ), (speech.shape, speech_lengths.shape, speaker_labels.shape, speaker_labels_length.shape)
         batch_size = speech.shape[0]
 
         # for data-parallel
-        text = text[:, : text_lengths.max()]
+        text = speaker_labels[:, : speaker_labels_length.max()]
 
-        # 1. Encoder
-        encoder_out, encoder_out_lens = self.enc(speech, speech_lengths)
-        intermediate_outs = None
-        if isinstance(encoder_out, tuple):
-            intermediate_outs = encoder_out[1]
-            encoder_out = encoder_out[0]
+        # Encoder
+        speech = [s[:s_len] for s, s_len in zip(speech, speech_lengths)]
+        encoder_out = self.forward_encoder(speech, speech_lengths)
+
+        # Encoder-decoder attractor
+        attractor_loss, attractors = self.encoder_decoder_attractor([e[order] for e, order in zip(encoder_out, orders)],
+                                                                    n_speakers)
 
         loss_att, acc_att, cer_att, wer_att = None, None, None, None
         loss_ctc, cer_ctc = None, None
@@ -195,10 +189,10 @@ class DiarEENDOLAModel(FunASRModel):
             orders = [np.arange(e.shape[0]) for e in emb]
             for order in orders:
                 np.random.shuffle(order)
-            attractors, probs = self.eda.estimate(
+            attractors, probs = self.encoder_decoder_attractor.estimate(
                 [e[torch.from_numpy(order).to(torch.long).to(speech[0].device)] for e, order in zip(emb, orders)])
         else:
-            attractors, probs = self.eda.estimate(emb)
+            attractors, probs = self.encoder_decoder_attractor.estimate(emb)
         attractors_active = []
         for p, att, e in zip(probs, attractors, emb):
             if n_speakers and n_speakers >= 0:

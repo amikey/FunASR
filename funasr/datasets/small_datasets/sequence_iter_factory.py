@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 from funasr.datasets.small_datasets.collate_fn import CommonCollateFn
 from funasr.datasets.small_datasets.dataset import ESPnetDataset
 from funasr.datasets.small_datasets.length_batch_sampler import LengthBatchSampler
+from funasr.datasets.small_datasets.unsorted_batch_sampler import UnsortedBatchSampler
 from funasr.datasets.small_datasets.preprocessor import build_preprocess
 from funasr.iterators.abs_iter_factory import AbsIterFactory
 from funasr.samplers.abs_sampler import AbsSampler
@@ -62,14 +63,21 @@ class SequenceIterFactory(AbsIterFactory):
 
         # sampler
         dataset_conf = args.dataset_conf
-        batch_sampler = LengthBatchSampler(
-            batch_bins=dataset_conf["batch_conf"]["batch_size"] * args.ngpu,
-            shape_files=shape_files,
-            sort_in_batch=dataset_conf["sort_in_batch"] if hasattr(dataset_conf, "sort_in_batch") else "descending",
-            sort_batch=dataset_conf["sort_batch"] if hasattr(dataset_conf, "sort_batch") else "ascending",
-            drop_last=False,
-            padding=True,
-        )
+        if "batch_sampler_type" in dataset_conf and dataset_conf["batch_sampler_type"] == "unsorted":
+            batch_sampler = UnsortedBatchSampler(
+                batch_size=dataset_conf["batch_conf"]["batch_size"] * args.ngpu,
+                key_file=data_path_and_name_and_type[0][0],
+                drop_last=False,
+            )
+        else:
+            batch_sampler = LengthBatchSampler(
+                batch_bins=dataset_conf["batch_conf"]["batch_size"] * args.ngpu,
+                shape_files=shape_files,
+                sort_in_batch=dataset_conf["sort_in_batch"] if hasattr(dataset_conf, "sort_in_batch") else "descending",
+                sort_batch=dataset_conf["sort_batch"] if hasattr(dataset_conf, "sort_batch") else "ascending",
+                drop_last=False,
+                padding=True,
+            )
 
         batches = list(batch_sampler)
         bs_list = [len(batch) for batch in batches]

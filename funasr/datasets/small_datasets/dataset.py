@@ -3,6 +3,7 @@
 
 import collections
 import copy
+import json
 import logging
 import numbers
 from typing import Callable
@@ -186,6 +187,14 @@ class ESPnetDataset(Dataset):
                         raise RuntimeError(f"{k} is duplicated ({path}:{linenum})")
                     text_int_loader[k] = [int(i) for i in v.split()]
             return text_int_loader
+        elif loader_type == "json":
+            json_loader = {}
+            with open(path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+                for line in lines:
+                    key, json_str = line.strip().split("\t")
+                    json_loader[key] = np.array(json.loads(json_str))
+            return json_loader
         else:
             raise RuntimeError(f"Not supported: loader_type={loader_type}")
 
