@@ -20,6 +20,7 @@ simu_valid_dataset=dev
 exp_dir="."
 lang=zh
 token_type=char
+input_size=345
 type=sound
 scp=wav.scp
 speed_perturb="0.9 1.0 1.1"
@@ -76,6 +77,7 @@ if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
                 --task_name diar \
                 --gpu_id $gpu_id \
                 --use_preprocessor false \
+                --input_size $input_size \
                 --data_dir ${simu_2skpr_feats_dir} \
                 --train_set ${simu_train_dataset} \
                 --valid_set ${simu_valid_dataset} \
