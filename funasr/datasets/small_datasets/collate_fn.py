@@ -3,6 +3,7 @@ from typing import Dict
 from typing import List
 from typing import Tuple
 from typing import Union
+from typing import Optional
 
 import numpy as np
 import torch
@@ -91,7 +92,7 @@ def common_collate_fn(
 def common_collate_fn_without_padding(
         data: Collection[Tuple[str, Dict[str, np.ndarray]]],
         not_sequence: Collection[str] = (),
-) -> Tuple[List[str], Dict[str, torch.Tensor]]:
+) -> Tuple[List[str], Dict[str, Optional(List[torch.Tensor], torch.Tensor)]]:
     """Concatenate ndarray-list to an array and convert to torch.Tensor.
     """
     assert check_argument_types()
@@ -113,7 +114,7 @@ def common_collate_fn_without_padding(
             if key == "speaker_labels":
                 lens = torch.tensor([d[key].shape[1] for d in data], dtype=torch.long)
                 orders = [np.arange(d[key].shape[0]) for d in data]
-                _ = [np.random.shuffle(0) for o in orders]
+                _ = [np.random.shuffle(o) for o in orders]
                 output["orders"] = [torch.tensor(o, dtype=torch.long) for o in orders]
             else:
                 lens = torch.tensor([d[key].shape[0] for d in data], dtype=torch.long)
