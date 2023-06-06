@@ -109,10 +109,10 @@ class DiarEENDOLAModel(FunASRModel):
     def forward(
             self,
             speech: List[torch.Tensor],
-            speech_lengths: List[torch.Tensor],  # num_frames of each sample
+            speech_lengths: torch.Tensor,  # num_frames of each sample
             speaker_labels: List[torch.Tensor],
-            speaker_labels_lengths: List[torch.Tensor],  # num_speakers of each sample
-            orders: List[torch.Tensor],
+            speaker_labels_lengths: torch.Tensor,  # num_speakers of each sample
+            orders: torch.Tensor,
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], torch.Tensor]:
 
         # Check that batch_size is unified
@@ -147,7 +147,7 @@ class DiarEENDOLAModel(FunASRModel):
                             to(encoder_out[0].device, non_blocking=True) for label in pit_speaker_labels]
         pad_attractors = [pad_attractor(att, self.max_n_speaker) for att in attractors]
         pse_speaker_logits = [torch.matmul(e, pad_att.permute(1, 0)) for e, pad_att in zip(encoder_out, pad_attractors)]
-        pse_speaker_logits = self.cal_postnet(pse_speaker_logits, self.max_n_speaker)
+        pse_speaker_logits = self.forward_post_net(pse_speaker_logits, speech_lengths)
         pse_loss = self.cal_power_loss(pse_speaker_logits, power_ts)
 
         loss = pse_loss + pit_loss + self.attractor_loss_weight * attractor_loss

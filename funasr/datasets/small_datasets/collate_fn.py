@@ -92,7 +92,7 @@ def common_collate_fn(
 def common_collate_fn_without_padding(
         data: Collection[Tuple[str, Dict[str, np.ndarray]]],
         not_sequence: Collection[str] = (),
-) -> Tuple[List[str], Dict[str, Optional(List[torch.Tensor], torch.Tensor)]]:
+):
     """Concatenate ndarray-list to an array and convert to torch.Tensor.
     """
     assert check_argument_types()
