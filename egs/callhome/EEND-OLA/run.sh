@@ -3,7 +3,7 @@
 . ./path.sh || exit 1;
 
 # machines configuration
-CUDA_VISIBLE_DEVICES="0"
+CUDA_VISIBLE_DEVICES="7"
 gpu_num=1
 count=1
 gpu_inference=true  # Whether to perform gpu decoding, set false for cpu decoding
