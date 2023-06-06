@@ -40,7 +40,7 @@ class SequenceIterFactory(AbsIterFactory):
         # collate
         if args.task_name in ["punc", "lm"]:
             collate_fn = CommonCollateFn(int_pad_value=0)
-        elif args.task_name in ["diarization"]:
+        elif args.task_name in ["diar"]:
             collate_fn = CommonCollateFn(padding=False)
         else:
             collate_fn = CommonCollateFn(float_pad_value=0.0, int_pad_value=-1)
