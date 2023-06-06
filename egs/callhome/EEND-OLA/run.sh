@@ -73,7 +73,7 @@ if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
             local_rank=$i
             gpu_id=$(echo $CUDA_VISIBLE_DEVICES | cut -d',' -f$[$i+1])
             train.py \
-                --task_name diarization \
+                --task_name diar \
                 --gpu_id $gpu_id \
                 --use_preprocessor false \
                 --data_dir ${simu_2skpr_feats_dir} \
