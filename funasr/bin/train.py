@@ -482,6 +482,12 @@ def get_parser():
         default=False,
         help="Apply lora for finetuning.",
     )
+    parser.add_argument(
+        "--lora_bias",
+        type=str,
+        default="none",
+        help="oss bucket.",
+    )
 
     return parser
 
@@ -527,7 +533,7 @@ if __name__ == '__main__':
     )
     if args.enable_lora:
         import loralib as lora
-        lora.mark_only_lora_as_trainable(model)
+        lora.mark_only_lora_as_trainable(model, args.lora_bias)
     for t in args.freeze_param:
         for k, p in model.named_parameters():
             if k.startswith(t + ".") or k == t:
