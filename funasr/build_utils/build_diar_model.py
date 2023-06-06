@@ -194,12 +194,10 @@ def build_diar_model(args):
             frontend = frontend_class(cmvn_file=args.cmvn_file, **args.frontend_conf)
         else:
             frontend = frontend_class(**args.frontend_conf)
-        input_size = frontend.output_size()
     else:
         args.frontend = None
         args.frontend_conf = {}
         frontend = None
-        input_size = args.input_size
 
     # encoder
     encoder_class = encoder_choices.get_class(args.encoder)

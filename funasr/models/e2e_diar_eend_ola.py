@@ -1,9 +1,6 @@
-# Copyright ESPnet (https://github.com/espnet/espnet). All Rights Reserved.
-#  Apache 2.0  (http://www.apache.org/licenses/LICENSE-2.0)
-
 from contextlib import contextmanager
 from distutils.version import LooseVersion
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 import numpy as np
 import torch
@@ -64,7 +61,7 @@ class DiarEENDOLAModel(FunASRModel):
 
     def __init__(
             self,
-            frontend: WavFrontendMel23,
+            frontend: Optional[WavFrontendMel23],
             encoder: EENDOLATransformerEncoder,
             encoder_decoder_attractor: EncoderDecoderAttractor,
             n_units: int = 256,
