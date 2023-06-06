@@ -205,7 +205,7 @@ def build_diar_model(args):
     encoder_class = encoder_choices.get_class(args.encoder)
     encoder = encoder_class(**args.encoder_conf)
 
-    if args.model_name == "sond":
+    if args.model == "sond":
         # data augmentation for spectrogram
         if args.specaug is not None:
             specaug_class = specaug_choices.get_class(args.specaug)
