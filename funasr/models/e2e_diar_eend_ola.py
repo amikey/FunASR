@@ -111,7 +111,7 @@ class DiarEENDOLAModel(FunASRModel):
             speech: List[torch.Tensor],
             speech_lengths: List[torch.Tensor],  # num_frames of each sample
             speaker_labels: List[torch.Tensor],
-            speaker_labels_length: List[torch.Tensor],  # num_speakers of each sample
+            speaker_labels_lengths: List[torch.Tensor],  # num_speakers of each sample
             orders: List[torch.Tensor],
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], torch.Tensor]:
 
@@ -120,8 +120,8 @@ class DiarEENDOLAModel(FunASRModel):
                 len(speech)
                 == len(speech_lengths)
                 == len(speaker_labels)
-                == len(speaker_labels_length)
-        ), (len(speech), len(speech_lengths), len(speaker_labels), len(speaker_labels_length))
+                == len(speaker_labels_lengths)
+        ), (len(speech), len(speech_lengths), len(speaker_labels), len(speaker_labels_lengths))
         batch_size = len(speech)
 
         # Encoder
@@ -130,15 +130,15 @@ class DiarEENDOLAModel(FunASRModel):
 
         # Encoder-decoder attractor
         attractor_loss, attractors = self.encoder_decoder_attractor([e[order] for e, order in zip(encoder_out, orders)],
-                                                                    speaker_labels_length)
+                                                                    speaker_labels_lengths)
         speaker_logits = [torch.matmul(e, att.permute(1, 0)) for e, att in zip(encoder_out, attractors)]
 
         # pit loss
-        max_n_speakers = max(speaker_labels_length)
+        max_n_speakers = max(speaker_labels_lengths)
         speaker_labels_padded = pad_labels(speaker_labels, max_n_speakers)  # [(T1, C_max), ..., (TB, C_max)]
         speaker_logits_padded = pad_results(speaker_logits, max_n_speakers)  # [(T1, C_max), ..., (TB, C_max)]
         _, pit_speaker_labels = batch_pit_n_speaker_loss(speaker_logits_padded, speaker_labels_padded,
-                                                         speaker_labels_length)
+                                                         speaker_labels_lengths)
         pit_loss = standard_loss(speaker_logits, pit_speaker_labels)
 
         # pse loss
