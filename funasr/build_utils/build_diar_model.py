@@ -203,7 +203,7 @@ def build_diar_model(args):
 
     # encoder
     encoder_class = encoder_choices.get_class(args.encoder)
-    encoder = encoder_class(input_size=input_size, **args.encoder_conf)
+    encoder = encoder_class(**args.encoder_conf)
 
     if args.model_name == "sond":
         # data augmentation for spectrogram
