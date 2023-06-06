@@ -272,7 +272,7 @@ def build_diar_model(args):
             **args.model_conf,
         )
 
-    elif args.model_name == "eend_ola":
+    elif args.model == "eend_ola":
         # encoder-decoder attractor
         encoder_decoder_attractor_class = encoder_decoder_attractor_choices.get_class(args.encoder_decoder_attractor)
         encoder_decoder_attractor = encoder_decoder_attractor_class(**args.encoder_decoder_attractor_conf)
