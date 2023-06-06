@@ -112,8 +112,9 @@ def common_collate_fn_without_padding(
         if key not in not_sequence:
             if key == "speaker_labels":
                 lens = torch.tensor([d[key].shape[1] for d in data], dtype=torch.long)
-                output["orders"] = [torch.tensor(np.random.shuffle(np.arange(d[key].shape[0])), dtype=torch.long) for d
-                                    in data]
+                orders = [np.arange(d[key].shape[0]) for d in data]
+                _ = [np.random.shuffle(0) for o in orders]
+                output["orders"] = [torch.tensor(o, dtype=torch.long) for o in orders]
             else:
                 lens = torch.tensor([d[key].shape[0] for d in data], dtype=torch.long)
             output[key + "_lengths"] = lens
