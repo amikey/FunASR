@@ -194,13 +194,13 @@ def prepare_data(args, distributed_option):
     data_names = args.dataset_conf.get("data_names", "speech,text").split(",")
     data_types = args.dataset_conf.get("data_types", "sound,text").split(",")
     file_names = args.data_file_names.split(",")
-    batch_sampler_type = args.dataset_conf.get("batch_sampler_type", "length")
+    batch_type = args.dataset_conf["batch_conf"]["batch_type"]
     if not distributed or distributed_option.dist_rank == 0:
         if hasattr(args, "filter_input") and args.filter_input:
             filter_wav_text(args.data_dir, args.train_set)
             filter_wav_text(args.data_dir, args.valid_set)
 
-        if args.dataset_type == "small" and batch_sampler_type != "unsorted":
+        if args.dataset_type == "small" and batch_type != "unsorted":
             calc_shape(args, args.train_set)
             calc_shape(args, args.valid_set)
 

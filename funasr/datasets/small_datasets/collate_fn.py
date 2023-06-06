@@ -20,13 +20,15 @@ class CommonCollateFn:
             float_pad_value: Union[float, int] = 0.0,
             int_pad_value: int = -32768,
             not_sequence: Collection[str] = (),
-            max_sample_size=None
+            max_sample_size=None,
+            padding=True,
     ):
         assert check_argument_types()
         self.float_pad_value = float_pad_value
         self.int_pad_value = int_pad_value
         self.not_sequence = set(not_sequence)
         self.max_sample_size = max_sample_size
+        self.padding = padding
 
     def __repr__(self):
         return (
@@ -37,12 +39,15 @@ class CommonCollateFn:
     def __call__(
             self, data: Collection[Tuple[str, Dict[str, np.ndarray]]]
     ) -> Tuple[List[str], Dict[str, torch.Tensor]]:
-        return common_collate_fn(
-            data,
-            float_pad_value=self.float_pad_value,
-            int_pad_value=self.int_pad_value,
-            not_sequence=self.not_sequence,
-        )
+        if self.padding:
+            return common_collate_fn(
+                data,
+                float_pad_value=self.float_pad_value,
+                int_pad_value=self.int_pad_value,
+                not_sequence=self.not_sequence,
+            )
+        else:
+            return common_collate_fn(data)
 
 
 def common_collate_fn(

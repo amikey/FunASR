@@ -7,8 +7,8 @@ from torch.utils.data import DataLoader
 from funasr.datasets.small_datasets.collate_fn import CommonCollateFn
 from funasr.datasets.small_datasets.dataset import ESPnetDataset
 from funasr.datasets.small_datasets.length_batch_sampler import LengthBatchSampler
-from funasr.datasets.small_datasets.unsorted_batch_sampler import UnsortedBatchSampler
 from funasr.datasets.small_datasets.preprocessor import build_preprocess
+from funasr.datasets.small_datasets.unsorted_batch_sampler import UnsortedBatchSampler
 from funasr.iterators.abs_iter_factory import AbsIterFactory
 from funasr.samplers.abs_sampler import AbsSampler
 
@@ -40,6 +40,8 @@ class SequenceIterFactory(AbsIterFactory):
         # collate
         if args.task_name in ["punc", "lm"]:
             collate_fn = CommonCollateFn(int_pad_value=0)
+        elif args.task_name in ["diarization"]:
+            collate_fn = CommonCollateFn(padding=False)
         else:
             collate_fn = CommonCollateFn(float_pad_value=0.0, int_pad_value=-1)
 
@@ -58,12 +60,12 @@ class SequenceIterFactory(AbsIterFactory):
             data_path_and_name_and_type,
             preprocess=preprocess_fn,
             dest_sample_rate=dest_sample_rate,
-            speed_perturb=args.speed_perturb if mode=="train" else None,
+            speed_perturb=args.speed_perturb if mode == "train" else None,
         )
 
         # sampler
         dataset_conf = args.dataset_conf
-        if "batch_sampler_type" in dataset_conf and dataset_conf["batch_sampler_type"] == "unsorted":
+        if dataset_conf["batch_conf"]["batch_type"] == "unsorted":
             batch_sampler = UnsortedBatchSampler(
                 batch_size=dataset_conf["batch_conf"]["batch_size"] * args.ngpu,
                 key_file=data_path_and_name_and_type[0][0],
@@ -92,7 +94,7 @@ class SequenceIterFactory(AbsIterFactory):
             args.max_update = len(bs_list) * args.max_epoch
             logging.info("Max update: {}".format(args.max_update))
 
-        if args.distributed and mode=="train":
+        if args.distributed and mode == "train":
             world_size = torch.distributed.get_world_size()
             rank = torch.distributed.get_rank()
             for batch in batches:
