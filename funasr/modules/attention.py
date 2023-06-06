@@ -14,7 +14,6 @@ from torch import nn
 from typing import Optional, Tuple
 
 import torch.nn.functional as F
-import loralib as lora
 from funasr.modules.nets_utils import make_pad_mask
 
 class MultiHeadedAttention(nn.Module):
@@ -464,6 +463,7 @@ class MultiHeadedAttentionSANMLoRA(nn.Module):
         self.d_k = n_feat // n_head
         self.h = n_head
         if lora_list is not None:
+            import loralib as lora
             if "o" in lora_list:
                 self.linear_out = lora.Linear(n_feat, n_feat, r=lora_rank)
             else:

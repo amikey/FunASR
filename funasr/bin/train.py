@@ -476,6 +476,12 @@ def get_parser():
         default=None,
         help="oss bucket.",
     )
+    parser.add_argument(
+        "--enable_lora",
+        type=str2bool,
+        default=False,
+        help="Apply lora for finetuning.",
+    )
 
     return parser
 
@@ -519,6 +525,9 @@ if __name__ == '__main__':
         dtype=getattr(torch, args.train_dtype),
         device="cuda" if args.ngpu > 0 else "cpu",
     )
+    if args.enable_lora:
+        import loralib as lora
+        lora.mark_only_lora_as_trainable(model)
     for t in args.freeze_param:
         for k, p in model.named_parameters():
             if k.startswith(t + ".") or k == t:
