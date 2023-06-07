@@ -24,22 +24,16 @@ test_sets="dev_ios test_ios"
 lm_token_list=
 
 ## path to AISHELL2 trans
-lm_train_text=
-lm_dev_text=
 lm_test_text=
 
-train_data_path_and_name_and_type=${lm_train_text},text,text
-train_shape_file=
-valid_data_path_and_name_and_type=${lm_dev_text},text,text
-valid_shape_file=
 lm_config=conf/train_lm_transformer.yaml
 tag=exp1
 model_dir="baseline_$(basename "${lm_config}" .yaml)_${lang}_${token_type}_${tag}"
-lm_exp=${exp_dir}/exp/${model_dir}
+
 inference_lm=valid.loss.ave.pb       # Language model path for decoding.
 
 stage=0
-stop_stage=1
+stop_stage=2
 
 . utils/parse_options.sh || exit 1;
 
@@ -69,11 +63,11 @@ if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
     done
 fi
 
-mkdir -p ${exp_dir}/exp/${model_dir}
 token_list=${feats_dir}/data/${lang}_token_list/$token_type/tokens.txt
 echo "dictionary: ${token_list}"
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     echo "stage 1: Dictionary Preparation"
+    mkdir -p ${feats_dir}/data/${lang}_token_list/$token_type
 
     echo "make a dictionary"
     echo "<blank>" > ${token_list}
@@ -89,9 +83,9 @@ fi
 world_size=$gpu_num  # run on one machine
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     echo "stage 2: LM Training"
-    mkdir -p ${lm_exp}
-    mkdir -p ${lm_exp}/log
-    INIT_FILE=${lm_exp}/ddp_init
+    mkdir -p ${exp_dir}/exp/${model_dir}
+    mkdir -p ${exp_dir}/exp/${model_dir}/log
+    INIT_FILE=${exp_dir}/exp/${model_dir}/ddp_init
     if [ -f $INIT_FILE ];then
         rm -f $INIT_FILE
     fi
@@ -102,17 +96,19 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
             rank=$i
             local_rank=$i
             gpu_id=$(echo $CUDA_VISIBLE_DEVICES | cut -d',' -f$[$i+1])
-            python  ../../../funasr/bin/lm_train.py \
+            python train.py \
+                --task_name lm \
                 --gpu_id ${gpu_id} \
                 --use_preprocessor true \
                 --token_type "${token_type}" \
                 --token_list "${lm_token_list}" \
-                --train_data_path_and_name_and_type "${train_data_path_and_name_and_type}" \
-                --train_shape_file "${train_shape_file}" \
-                --valid_data_path_and_name_and_type "${valid_data_path_and_name_and_type}" \
-                --valid_shape_file "${valid_shape_file}" \
+                --data_dir ${feats_dir}/data \
+                --train_set ${train_set} \
+                --valid_set ${valid_set} \
+                --data_file_names "text" \
+                --filter_input false \
                 --resume true \
-                --output_dir "${lm_exp}" \
+                --output_dir ${exp_dir}/exp/${model_dir} \
                 --config ${lm_config} \
                 --ngpu ${gpu_num} \
                 --num_worker_count ${count} \

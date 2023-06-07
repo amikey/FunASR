@@ -10,8 +10,10 @@ lm_conf:
 
 # optimization related
 grad_clip: 5.0
+batch_type: numel
+batch_bins: 6000000
 accum_grad: 1
-max_epoch: 15
+max_epoch: 15  # 15epoch is enough
 
 optim: adam
 optim_conf:
@@ -24,18 +26,6 @@ best_model_criterion:
 -   - valid
     - loss
     - min
-keep_nbest_models: 10
-
-dataset_conf:
-    data_names: text
-    data_types: text
-    shuffle: True
-    shuffle_conf:
-        shuffle_size: 2048
-        sort_size: 500
-    batch_conf:
-        batch_type: token
-        batch_size: 500
-    num_workers: 8
+keep_nbest_models: 10  # 10 is good.
 
 log_interval: 50
