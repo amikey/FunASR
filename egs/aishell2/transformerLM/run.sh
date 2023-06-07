@@ -21,8 +21,6 @@ train_set=train
 valid_set=dev_ios
 test_sets="dev_ios test_ios"
 
-lm_token_list=
-
 ## path to AISHELL2 trans
 lm_test_text=
 
@@ -101,12 +99,11 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
                 --gpu_id ${gpu_id} \
                 --use_preprocessor true \
                 --token_type "${token_type}" \
-                --token_list "${lm_token_list}" \
+                --token_list "${token_list}" \
                 --data_dir ${feats_dir}/data \
                 --train_set ${train_set} \
                 --valid_set ${valid_set} \
                 --data_file_names "text" \
-                --filter_input false \
                 --resume true \
                 --output_dir ${exp_dir}/exp/${model_dir} \
                 --config ${lm_config} \
