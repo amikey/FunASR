@@ -96,7 +96,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
             rank=$i
             local_rank=$i
             gpu_id=$(echo $CUDA_VISIBLE_DEVICES | cut -d',' -f$[$i+1])
-            python train.py \
+            train.py \
                 --task_name lm \
                 --gpu_id ${gpu_id} \
                 --use_preprocessor true \
