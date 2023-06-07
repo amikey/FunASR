@@ -853,7 +853,7 @@ def build_preprocess(args, train):
             text_cleaner=args.cleaner,
             g2p_type=args.g2p,
             text_name=text_names,
-            non_linguistic_symbols=args.non_linguistic_symbols,
+            non_linguistic_symbols=args.non_linguistic_symbols if hasattr(args, "non_linguistic_symbols") else None,
         )
     elif args.task_name == "lm":
         retval = LMPreprocessor(
@@ -864,7 +864,7 @@ def build_preprocess(args, train):
             text_cleaner=args.cleaner,
             g2p_type=args.g2p,
             text_name="text",
-            non_linguistic_symbols=args.non_linguistic_symbols,
+            non_linguistic_symbols=args.non_linguistic_symbols if hasattr(args, "non_linguistic_symbols") else None,
             split_with_space=args.split_with_space,
             seg_dict_file=args.seg_dict_file
         )
