@@ -32,7 +32,7 @@ model_dir="baseline_$(basename "${lm_config}" .yaml)_${lang}_${token_type}_${tag
 
 inference_lm=valid.loss.ave.pb       # Language model path for decoding.
 
-stage=0
+stage=2
 stop_stage=2
 
 . utils/parse_options.sh || exit 1;
