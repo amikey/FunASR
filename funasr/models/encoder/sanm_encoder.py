@@ -12,7 +12,7 @@ from typeguard import check_argument_types
 import numpy as np
 from funasr.torch_utils.device_funcs import to_device
 from funasr.modules.nets_utils import make_pad_mask
-from funasr.modules.attention import MultiHeadedAttention, MultiHeadedAttentionSANM, MultiHeadedAttentionSANMLoRA, MultiHeadedAttentionSANMwithMask
+from funasr.modules.attention import MultiHeadedAttention, MultiHeadedAttentionSANM, MultiHeadedAttentionSANMwithMask
 from funasr.modules.embedding import SinusoidalPositionEncoder, StreamSinusoidalPositionEncoder
 from funasr.modules.layer_norm import LayerNorm
 from funasr.modules.multi_layer_conv import Conv1dLinear
@@ -148,8 +148,10 @@ class SANMEncoder(AbsEncoder):
         kernel_size : int = 11,
         sanm_shfit : int = 0,
         selfattention_layer_type: str = "sanm",
-        lora_list = None,
-        lora_rank=8,
+        lora_list: List[str] = None,
+        lora_rank: int = 8,
+        lora_alpha: int = 16,
+        lora_dropout: float = 0.1,
         tf2torch_tensor_name_prefix_torch: str = "encoder",
         tf2torch_tensor_name_prefix_tf: str = "seq2seq/encoder",
     ):
@@ -233,27 +235,10 @@ class SANMEncoder(AbsEncoder):
                 attention_dropout_rate,
                 kernel_size,
                 sanm_shfit,
-            )
-
-            encoder_selfattn_layer_args = (
-                attention_heads,
-                output_size,
-                output_size,
-                attention_dropout_rate,
-                kernel_size,
-                sanm_shfit,
-            )
-        elif selfattention_layer_type == "sanm_lora":
-            encoder_selfattn_layer = MultiHeadedAttentionSANMLoRA
-            encoder_selfattn_layer_args0 = (
-                attention_heads,
-                input_size,
-                output_size,
-                attention_dropout_rate,
-                kernel_size,
-                sanm_shfit,
                 lora_list,
-                lora_rank
+                lora_rank,
+                lora_alpha,
+                lora_dropout,
             )
 
             encoder_selfattn_layer_args = (
@@ -264,7 +249,9 @@ class SANMEncoder(AbsEncoder):
                 kernel_size,
                 sanm_shfit,
                 lora_list,
-                lora_rank
+                lora_rank,
+                lora_alpha,
+                lora_dropout,
             )
 
         self.encoders0 = repeat(
