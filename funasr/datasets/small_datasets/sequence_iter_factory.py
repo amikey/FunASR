@@ -43,8 +43,7 @@ class SequenceIterFactory(AbsIterFactory):
             collate_fn = CommonCollateFn(float_pad_value=0.0, int_pad_value=-1)
 
         # dataset
-        dest_sample_rate = args.frontend_conf["fs"] if (
-                args.frontend_conf is not None and "fs" in args.frontend_conf) else 16000
+        dest_sample_rate = args.frontend_conf["fs"] if (hasattr(args, "frontend_conf") and args.frontend_conf is not None and "fs" in args.frontend_conf) else 16000
         if mode == "train":
             data_path_and_name_and_type = args.train_data_path_and_name_and_type
             shape_files = args.train_shape_file
