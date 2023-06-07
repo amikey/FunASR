@@ -14,8 +14,9 @@ lang=zh
 token_type=char
 
 # data
-tr_dir=
-dev_tst_dir=
+tr_dir=/nfs/wangjiaming.wjm/asr_data/aishell2/AISHELL-2/iOS/data
+dev_tst_dir=/nfs/wangjiaming.wjm/asr_data/aishell2/AISHELL-DEV-TEST-SET
+
 train_set=train
 valid_set=dev_ios
 test_sets="dev_ios test_ios"
