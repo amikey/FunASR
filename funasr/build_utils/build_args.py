@@ -59,6 +59,12 @@ def build_args(args, parser, extra_task_params):
         from funasr.build_utils.build_lm_model import class_choices_list
         for class_choices in class_choices_list:
             class_choices.add_arguments(task_parser)
+        task_parser.add_argument(
+            "--split_with_space",
+            type=str2bool,
+            default=True,
+            help="whether to split text using <space>",
+        )
 
     elif args.task_name == "punc":
         from funasr.build_utils.build_punc_model import class_choices_list
