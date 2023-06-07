@@ -866,7 +866,6 @@ def build_preprocess(args, train):
             text_name="text",
             non_linguistic_symbols=args.non_linguistic_symbols if hasattr(args, "non_linguistic_symbols") else None,
             split_with_space=args.split_with_space,
-            seg_dict_file=args.seg_dict_file
         )
     elif args.task_name == "vad":
         retval = None
