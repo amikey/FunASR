@@ -104,46 +104,46 @@ fi
 ave_id=avg${average_2spk_start}-${average_2spk_end}
 if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
     echo "averaging model parameters into $simu_2spkr_model_dir/$ave_id.pb"
-    models=`eval echo $simu_2spkr_model_dir/{$average_2spk_start..$average_2spk_end}epoch.pb`
-    python local/model_averaging.py $simu_2spkr_model_dir/$ave_id.pb $models
+    models=`eval echo ${exp_dir}/exp/${simu_2spkr_model_dir}/{$average_2spk_start..$average_2spk_end}epoch.pb`
+    python local/model_averaging.py ${exp_dir}/exp/${simu_2spkr_model_dir}/$ave_id.pb $models
 fi
 
-# ASR Training Stage
-world_size=$gpu_num  # run on one machine
-if [ ${stage} -le 6 ] && [ ${stop_stage} -ge 6 ]; then
-    echo "stage 5: ASR Training"
-    mkdir -p ${exp_dir}/exp/${simu_2spkr_model_dir}
-    mkdir -p ${exp_dir}/exp/${simu_2spkr_model_dir}/log
-    INIT_FILE=${exp_dir}/exp/${simu_2spkr_model_dir}/ddp_init
-    if [ -f $INIT_FILE ];then
-        rm -f $INIT_FILE
-    fi
-    init_method=file://$(readlink -f $INIT_FILE)
-    echo "$0: init method is $init_method"
-    for ((i = 0; i < $gpu_num; ++i)); do
-        {
-            rank=$i
-            local_rank=$i
-            gpu_id=$(echo $CUDA_VISIBLE_DEVICES | cut -d',' -f$[$i+1])
-            train.py \
-                --task_name diar \
-                --gpu_id $gpu_id \
-                --use_preprocessor false \
-                --input_size $input_size \
-                --data_dir ${simu_2skpr_feats_dir} \
-                --train_set ${simu_train_dataset} \
-                --valid_set ${simu_valid_dataset} \
-                --data_file_names "feats_2spkr.scp,speaker_labels_2spkr.json" \
-                --resume true \
-                --output_dir ${exp_dir}/exp/${model_dir} \
-                --config $diar_config \
-                --ngpu $gpu_num \
-                --num_worker_count $count \
-                --dist_init_method $init_method \
-                --dist_world_size $world_size \
-                --dist_rank $rank \
-                --local_rank $local_rank 1> ${exp_dir}/exp/${model_dir}/log/train.log.$i 2>&1
-        } &
-        done
-        wait
-fi
+## ASR Training Stage
+#world_size=$gpu_num  # run on one machine
+#if [ ${stage} -le 6 ] && [ ${stop_stage} -ge 6 ]; then
+#    echo "stage 5: ASR Training"
+#    mkdir -p ${exp_dir}/exp/${simu_2spkr_model_dir}
+#    mkdir -p ${exp_dir}/exp/${simu_2spkr_model_dir}/log
+#    INIT_FILE=${exp_dir}/exp/${simu_2spkr_model_dir}/ddp_init
+#    if [ -f $INIT_FILE ];then
+#        rm -f $INIT_FILE
+#    fi
+#    init_method=file://$(readlink -f $INIT_FILE)
+#    echo "$0: init method is $init_method"
+#    for ((i = 0; i < $gpu_num; ++i)); do
+#        {
+#            rank=$i
+#            local_rank=$i
+#            gpu_id=$(echo $CUDA_VISIBLE_DEVICES | cut -d',' -f$[$i+1])
+#            train.py \
+#                --task_name diar \
+#                --gpu_id $gpu_id \
+#                --use_preprocessor false \
+#                --input_size $input_size \
+#                --data_dir ${simu_2skpr_feats_dir} \
+#                --train_set ${simu_train_dataset} \
+#                --valid_set ${simu_valid_dataset} \
+#                --data_file_names "feats_2spkr.scp,speaker_labels_2spkr.json" \
+#                --resume true \
+#                --output_dir ${exp_dir}/exp/${model_dir} \
+#                --config $diar_config \
+#                --ngpu $gpu_num \
+#                --num_worker_count $count \
+#                --dist_init_method $init_method \
+#                --dist_world_size $world_size \
+#                --dist_rank $rank \
+#                --local_rank $local_rank 1> ${exp_dir}/exp/${model_dir}/log/train.log.$i 2>&1
+#        } &
+#        done
+#        wait
+#fi
