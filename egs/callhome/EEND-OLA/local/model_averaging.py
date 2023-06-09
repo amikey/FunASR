@@ -7,8 +7,6 @@ import torch
 
 def average_model(input_files, output_file):
     output_model = {}
-    model_ckpt = torch.load(input_files[0])
-    print(model_ckpt['state_dict'].keys())
     for ckpt_path in input_files:
         model_params = torch.load(ckpt_path, map_location="cpu")
         for key, value in model_params.items():
