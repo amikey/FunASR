@@ -17,6 +17,10 @@ simu_2skpr_feats_dir="/nfs/wangjiaming.wjm/EEND_ARK_DATA/data/simu_data" #featur
 simu_train_dataset=train
 simu_valid_dataset=dev
 
+# model average
+average_2spk_start=91
+average_2spk_end=100
+
 exp_dir="."
 lang=zh
 token_type=char
@@ -24,8 +28,8 @@ input_size=345
 type=sound
 scp=wav.scp
 speed_perturb="0.9 1.0 1.1"
-stage=3
-stop_stage=5
+stage=5
+stop_stage=6
 
 # feature configuration
 nj=64
@@ -41,8 +45,8 @@ set -e
 set -u
 set -o pipefail
 
-diar_config=conf/train_diar_eend_ola_2spkr.yaml
-model_dir="baseline_$(basename "${diar_config}" .yaml)_${tag}"
+simu_2spkr_diar_config=conf/train_diar_eend_ola_2spkr.yaml
+simu_2spkr_model_dir="baseline_$(basename "${simu_2spkr_diar_config}" .yaml)_${tag}"
 
 # you can set gpu num for decoding here
 gpuid_list=$CUDA_VISIBLE_DEVICES  # set gpus for decoding, the same as training stage by default
@@ -60,12 +64,60 @@ fi
 world_size=$gpu_num  # run on one machine
 if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
     echo "stage 4: ASR Training"
-    mkdir -p ${exp_dir}/exp/${model_dir}
-    mkdir -p ${exp_dir}/exp/${model_dir}/log
-    INIT_FILE=${exp_dir}/exp/${model_dir}/ddp_init
+    mkdir -p ${exp_dir}/exp/${simu_2spkr_model_dir}
+    mkdir -p ${exp_dir}/exp/${simu_2spkr_model_dir}/log
+    INIT_FILE=${exp_dir}/exp/${simu_2spkr_model_dir}/ddp_init
     if [ -f $INIT_FILE ];then
         rm -f $INIT_FILE
-    fi 
+    fi
+    init_method=file://$(readlink -f $INIT_FILE)
+    echo "$0: init method is $init_method"
+    for ((i = 0; i < $gpu_num; ++i)); do
+        {
+            rank=$i
+            local_rank=$i
+            gpu_id=$(echo $CUDA_VISIBLE_DEVICES | cut -d',' -f$[$i+1])
+            train.py \
+                --task_name diar \
+                --gpu_id $gpu_id \
+                --use_preprocessor false \
+                --input_size $input_size \
+                --data_dir ${simu_2skpr_feats_dir} \
+                --train_set ${simu_train_dataset} \
+                --valid_set ${simu_valid_dataset} \
+                --data_file_names "feats_2spkr.scp,speaker_labels_2spkr.json" \
+                --resume true \
+                --output_dir ${exp_dir}/exp/${simu_2spkr_model_dir} \
+                --config $simu_2spkr_diar_config \
+                --ngpu $gpu_num \
+                --num_worker_count $count \
+                --dist_init_method $init_method \
+                --dist_world_size $world_size \
+                --dist_rank $rank \
+                --local_rank $local_rank 1> ${exp_dir}/exp/${simu_2spkr_model_dir}/log/train.log.$i 2>&1
+        } &
+        done
+        wait
+fi
+
+# Average model parameters
+ave_id=avg${average_2spk_start}-${average_2spk_end}
+if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
+    echo "averaging model parameters into $simu_2spkr_model_dir/$ave_id.pb"
+    models=`eval echo $simu_2spkr_model_dir/{$average_2spk_start..$average_2spk_end}epoch.pb`
+    python local/model_averaging.py $simu_2spkr_model_dir/$ave_id.pb $models
+fi
+
+# ASR Training Stage
+world_size=$gpu_num  # run on one machine
+if [ ${stage} -le 6 ] && [ ${stop_stage} -ge 6 ]; then
+    echo "stage 5: ASR Training"
+    mkdir -p ${exp_dir}/exp/${simu_2spkr_model_dir}
+    mkdir -p ${exp_dir}/exp/${simu_2spkr_model_dir}/log
+    INIT_FILE=${exp_dir}/exp/${simu_2spkr_model_dir}/ddp_init
+    if [ -f $INIT_FILE ];then
+        rm -f $INIT_FILE
+    fi
     init_method=file://$(readlink -f $INIT_FILE)
     echo "$0: init method is $init_method"
     for ((i = 0; i < $gpu_num; ++i)); do
