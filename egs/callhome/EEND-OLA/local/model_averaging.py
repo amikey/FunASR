@@ -10,8 +10,7 @@ def average_model(input_files, output_file):
     model_ckpt = torch.load(input_files[0])
     print(model_ckpt['state_dict'].keys())
     for ckpt_path in input_files:
-        model_ckpt = torch.load(ckpt_path, map_location="cpu")
-        model_params = model_ckpt['state_dict']
+        model_params = torch.load(ckpt_path, map_location="cpu")
         for key, value in model_params.items():
             if key not in output_model:
                 output_model[key] = value
