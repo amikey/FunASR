@@ -71,9 +71,9 @@ class Paraformer(nn.Module):
 
         decoder_out, _ = self.decoder(enc, enc_len, pre_acoustic_embeds, pre_token_length)
         decoder_out = torch.log_softmax(decoder_out, dim=-1)
-        # sample_ids = decoder_out.argmax(dim=-1)
+        sample_ids = decoder_out.argmax(dim=-1)
 
-        return decoder_out, pre_token_length
+        return decoder_out, pre_token_length, sample_ids
 
     def get_dummy_inputs(self):
         speech = torch.randn(2, 30, self.feats_dim)
@@ -92,7 +92,7 @@ class Paraformer(nn.Module):
         return ['speech', 'speech_lengths']
 
     def get_output_names(self):
-        return ['logits', 'token_num']
+        return ['logits', 'token_num', 'sample_ids']
 
     def get_dynamic_axes(self):
         return {
@@ -170,11 +170,12 @@ class BiCifParaformer(nn.Module):
 
         decoder_out, _ = self.decoder(enc, enc_len, pre_acoustic_embeds, pre_token_length)
         decoder_out = torch.log_softmax(decoder_out, dim=-1)
-        
+        sample_ids = decoder_out.argmax(dim=-1)
+     
         # get predicted timestamps
         us_alphas, us_cif_peak = self.predictor.get_upsample_timestmap(enc, mask, pre_token_length)
 
-        return decoder_out, pre_token_length, us_alphas, us_cif_peak
+        return decoder_out, pre_token_length, sample_ids, us_alphas, us_cif_peak
 
     def get_dummy_inputs(self):
         speech = torch.randn(2, 30, self.feats_dim)
@@ -193,7 +194,7 @@ class BiCifParaformer(nn.Module):
         return ['speech', 'speech_lengths']
 
     def get_output_names(self):
-        return ['logits', 'token_num', 'us_alphas', 'us_cif_peak']
+        return ['logits', 'token_num', 'sample_ids', 'us_alphas', 'us_cif_peak']
 
     def get_dynamic_axes(self):
         return {
@@ -207,6 +208,9 @@ class BiCifParaformer(nn.Module):
             'logits': {
                 0: 'batch_size',
                 1: 'logits_length'
+            },
+            'sample_ids': {
+                0: 'batch_size',
             },
             'us_alphas': {
                 0: 'batch_size',
