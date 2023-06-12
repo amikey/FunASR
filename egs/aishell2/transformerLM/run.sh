@@ -30,8 +30,8 @@ model_dir="baseline_$(basename "${lm_config}" .yaml)_${lang}_${token_type}_${tag
 
 inference_lm=valid.loss.ave.pb       # Language model path for decoding.
 
-stage=2
-stop_stage=2
+stage=3
+stop_stage=3
 
 . utils/parse_options.sh || exit 1;
 
@@ -125,11 +125,11 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
     echo "Stage 3: Calc perplexity: ${lm_test_text}"
     
     python ../../../funasr/bin/lm_inference.py \
-        --output_dir "${lm_exp}/perplexity_test" \
+        --output_dir "${exp_dir}/exp/${model_dir}/perplexity_test" \
         --ngpu "${gpu_num}" \
         --batch_size 1 \
-        --train_config "${lm_exp}"/config.yaml \
-        --model_file "${lm_exp}/${inference_lm}" \
+        --train_config "${exp_dir}/exp/${model_dir}"/config.yaml \
+        --model_file "${exp_dir}/exp/${model_dir}/${inference_lm}" \
         --data_path_and_name_and_type "${lm_test_text},text,text" \
         --num_workers 1 \
         --split_with_space false 
