@@ -5,6 +5,8 @@
 # machines configuration
 CUDA_VISIBLE_DEVICES="0,1,2,3,4,5,6,7"
 gpu_num=8
+LM_CUDA_VISIBLE_DEVICES="0,1"
+lm_gpu_num=8
 count=1
 gpu_inference=true  # Whether to perform gpu decoding, set false for cpu decoding
 # for gpu decoding, inference_nj=ngpu*njob; for cpu decoding, inference_nj=njob
@@ -119,7 +121,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
 fi
 
 # LM Training Stage
-world_size=$gpu_num  # run on one machine
+world_size=$lm_gpu_num  # run on one machine
 if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
     echo "stage 3: LM Training"
     mkdir -p ${exp_dir}/exp/${lm_model_dir}
@@ -130,11 +132,11 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
     fi
     init_method=file://$(readlink -f $INIT_FILE)
     echo "$0: init method is $init_method"
-    for ((i = 0; i < $gpu_num; ++i)); do
+    for ((i = 0; i < $lm_gpu_num; ++i)); do
         {
             rank=$i
             local_rank=$i
-            gpu_id=$(echo $CUDA_VISIBLE_DEVICES | cut -d',' -f$[$i+1])
+            gpu_id=$(echo $LM_CUDA_VISIBLE_DEVICES | cut -d',' -f$[$i+1])
             train.py \
                 --task_name lm \
                 --gpu_id ${gpu_id} \
@@ -150,7 +152,7 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
                 --resume true \
                 --output_dir ${exp_dir}/exp/${lm_model_dir} \
                 --config ${lm_config} \
-                --ngpu ${gpu_num} \
+                --ngpu ${lm_gpu_num} \
                 --num_worker_count ${count} \
                 --multiprocessing_distributed true \
                 --dist_init_method ${init_method} \
