@@ -92,7 +92,7 @@ def inference_lm(
         text_cleaner=train_args.cleaner,
         g2p_type=train_args.g2p,
         text_name="text",
-        non_linguistic_symbols=train_args.non_linguistic_symbols,
+        non_linguistic_symbols=train_args.non_linguistic_symbols if hasattr(train_args, "non_linguistic_symbols") else None,
         split_with_space=split_with_space,
         seg_dict_file=seg_dict_file
     )
