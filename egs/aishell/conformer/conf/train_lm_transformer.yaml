@@ -1,0 +1,41 @@
+lm: transformer
+lm_conf:
+    pos_enc: null
+    embed_unit: 128
+    att_unit: 512
+    head: 8
+    unit: 2048
+    layer: 16
+    dropout_rate: 0.0
+
+# optimization related
+grad_clip: 5.0
+accum_grad: 1
+max_epoch: 15
+
+optim: adam
+optim_conf:
+   lr: 0.001
+scheduler: warmuplr
+scheduler_conf:
+   warmup_steps: 25000
+
+best_model_criterion:
+-   - valid
+    - loss
+    - min
+keep_nbest_models: 10
+
+dataset_conf:
+    data_names: text
+    data_types: text
+    shuffle: True
+    shuffle_conf:
+        shuffle_size: 2048
+        sort_size: 500
+    batch_conf:
+        batch_type: token
+        batch_size: 1500
+    num_workers: 8
+
+log_interval: 50
