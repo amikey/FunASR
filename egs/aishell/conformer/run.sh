@@ -3,8 +3,10 @@
 . ./path.sh || exit 1;
 
 # machines configuration
-CUDA_VISIBLE_DEVICES="0,1"
+CUDA_VISIBLE_DEVICES="2,3"
 gpu_num=2
+LM_CUDA_VISIBLE_DEVICES="2,3"
+lm_gpu_num=2
 count=1
 gpu_inference=true  # Whether to perform gpu decoding, set false for cpu decoding
 # for gpu decoding, inference_nj=ngpu*njob; for cpu decoding, inference_nj=njob
@@ -49,6 +51,8 @@ test_sets="dev test"
 #asr_config=conf/train_asr_conformer.yaml
 asr_config=conf/train_asr_conformer2.yaml
 model_dir="baseline_$(basename "${asr_config}" .yaml)_${lang}_${token_type}_${tag}"
+lm_config=conf/train_lm_transformer.yaml
+lm_model_dir="baseline_$(basename "${lm_config}" .yaml)_${lang}_${token_type}_${tag}"
 
 inference_config=conf/decode_asr_transformer.yaml
 inference_asr_model=valid.acc.ave_10best.pb
@@ -105,9 +109,45 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
 fi
 
 # LM Training Stage
-world_size=$gpu_num  # run on one machine
+world_size=$lm_gpu_num  # run on one machine
 if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
     echo "stage 3: LM Training"
+    mkdir -p ${exp_dir}/exp/${lm_model_dir}
+    mkdir -p ${exp_dir}/exp/${lm_model_dir}/log
+    INIT_FILE=${exp_dir}/exp/${lm_model_dir}/ddp_init
+    if [ -f $INIT_FILE ];then
+        rm -f $INIT_FILE
+    fi
+    init_method=file://$(readlink -f $INIT_FILE)
+    echo "$0: init method is $init_method"
+    for ((i = 0; i < $lm_gpu_num; ++i)); do
+        {
+            rank=$i
+            local_rank=$i
+            gpu_id=$(echo $LM_CUDA_VISIBLE_DEVICES | cut -d',' -f$[$i+1])
+            train.py \
+                --task_name lm \
+                --gpu_id ${gpu_id} \
+                --use_preprocessor true \
+                --token_type "${token_type}" \
+                --token_list "${token_list}" \
+                --data_dir ${feats_dir}/data \
+                --train_set ${train_set} \
+                --valid_set ${valid_set} \
+                --data_file_names "text" \
+                --resume true \
+                --output_dir ${exp_dir}/exp/${lm_model_dir} \
+                --config ${lm_config} \
+                --ngpu ${lm_gpu_num} \
+                --num_worker_count ${count} \
+                --multiprocessing_distributed true \
+                --dist_init_method ${init_method} \
+                --dist_world_size ${world_size} \
+                --dist_rank ${rank} \
+                --local_rank ${local_rank} 1> ${exp_dir}/exp/${lm_model_dir}/log/train.log.$i 2>&1
+        } &
+      done
+      wait
 fi
 
 # ASR Training Stage

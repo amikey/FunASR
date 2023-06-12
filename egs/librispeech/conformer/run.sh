@@ -6,7 +6,7 @@
 CUDA_VISIBLE_DEVICES="0,1,2,3,4,5,6,7"
 gpu_num=8
 LM_CUDA_VISIBLE_DEVICES="0,1"
-lm_gpu_num=8
+lm_gpu_num=2
 count=1
 gpu_inference=true  # Whether to perform gpu decoding, set false for cpu decoding
 # for gpu decoding, inference_nj=ngpu*njob; for cpu decoding, inference_nj=njob
