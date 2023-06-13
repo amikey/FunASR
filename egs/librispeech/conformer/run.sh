@@ -60,6 +60,8 @@ lm_model_dir="baseline_$(basename "${lm_config}" .yaml)_${lang}_${token_type}_${
 inference_config=conf/decode_asr_transformer_ctc0.3_beam5yaml
 #inference_config=conf/decode_asr_transformer_ctc0.3_beam60.yaml
 inference_asr_model=valid.acc.ave_10best.pb
+use_lm=true
+inference_lm=valid.loss.ave_10best.pb
 
 # you can set gpu num for decoding here
 gpuid_list=$CUDA_VISIBLE_DEVICES  # set gpus for decoding, the same as training stage by default
@@ -215,6 +217,9 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
     for dset in ${test_sets}; do
         asr_exp=${exp_dir}/exp/${model_dir}
         inference_tag="$(basename "${inference_config}" .yaml)"
+        if "${use_lm}"; then
+           inference_tag+="_lm"
+        fi
         _dir="${asr_exp}/${inference_tag}/${inference_asr_model}/${dset}"
         _logdir="${_dir}/logdir"
         if [ -d ${_dir} ]; then
@@ -235,6 +240,10 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
         _opts=
         if [ -n "${inference_config}" ]; then
             _opts+="--config ${inference_config} "
+        fi
+        if "${use_lm}"; then
+            _opts+="--lm_train_config ${exp_dir}/exp/${lm_model_dir}/config.yaml "
+            _opts+="--lm_file ${exp_dir}/exp/${lm_model_dir}/${inference_lm} "
         fi
         ${infer_cmd} --gpu "${_ngpu}" --max-jobs-run "${_nj}" JOB=1:"${_nj}" "${_logdir}"/asr_inference.JOB.log \
             python -m funasr.bin.asr_inference_launch \
@@ -262,4 +271,19 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
         tail -n 3 ${_dir}/text.cer > ${_dir}/text.cer.txt
         cat ${_dir}/text.cer.txt
     done
+fi
+
+# Prepare files for ModelScope fine-tuning and inference
+if [ ${stage} -le 6 ] && [ ${stop_stage} -ge 6 ]; then
+    echo "stage 6: ModelScope Preparation"
+    cp ${feats_dir}/data/${train_set}/cmvn/am.mvn ${exp_dir}/exp/${model_dir}/am.mvn
+    vocab_size=$(cat ${token_list} | wc -l)
+    python utils/gen_modelscope_configuration.py \
+        --am_model_name $inference_asr_model \
+        --mode asr \
+        --model_name conformer \
+        --dataset librispeech \
+        --output_dir $exp_dir/exp/$model_dir \
+        --vocab_size $vocab_size \
+        --tag $tag
 fi
