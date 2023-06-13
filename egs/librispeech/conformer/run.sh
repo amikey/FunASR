@@ -57,7 +57,7 @@ model_dir="baseline_$(basename "${asr_config}" .yaml)_${lang}_${token_type}_${ta
 lm_config=conf/train_lm_transformer.yaml
 lm_model_dir="baseline_$(basename "${lm_config}" .yaml)_${lang}_${token_type}_${tag}"
 
-inference_config=conf/decode_asr_transformer_ctc0.3_beam5yaml
+inference_config=conf/decode_asr_transformer_ctc0.3_beam5.yaml
 #inference_config=conf/decode_asr_transformer_ctc0.3_beam60.yaml
 inference_asr_model=valid.acc.ave_10best.pb
 use_lm=true
