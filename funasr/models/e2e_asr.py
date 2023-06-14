@@ -17,6 +17,7 @@ from funasr.layers.abs_normalize import AbsNormalize
 from funasr.losses.label_smoothing_loss import (
     LabelSmoothingLoss,  # noqa: H301
 )
+from funasr.models.base_model import FunASRModel
 from funasr.models.ctc import CTC
 from funasr.models.decoder.abs_decoder import AbsDecoder
 from funasr.models.encoder.abs_encoder import AbsEncoder
@@ -25,10 +26,10 @@ from funasr.models.postencoder.abs_postencoder import AbsPostEncoder
 from funasr.models.preencoder.abs_preencoder import AbsPreEncoder
 from funasr.models.specaug.abs_specaug import AbsSpecAug
 from funasr.modules.add_sos_eos import add_sos_eos
+from funasr.modules.beam_search.beam_search import Hypothesis
 from funasr.modules.e2e_asr_common import ErrorCalculator
 from funasr.modules.nets_utils import th_accuracy
 from funasr.torch_utils.device_funcs import force_gatherable
-from funasr.models.base_model import FunASRModel
 
 if LooseVersion(torch.__version__) >= LooseVersion("1.6.0"):
     from torch.cuda.amp import autocast
@@ -95,7 +96,6 @@ class ASRModel(FunASRModel):
             )
 
         self.error_calculator = None
-
 
         # we set self.decoder = None in the CTC mode since
         # self.decoder parameters were never used and PyTorch complained
@@ -196,7 +196,6 @@ class ASRModel(FunASRModel):
             loss_ctc = (
                                1 - self.interctc_weight
                        ) * loss_ctc + self.interctc_weight * loss_interctc
-
 
         # 2b. Attention decoder branch
         if self.ctc_weight != 1.0:
@@ -451,3 +450,31 @@ class ASRModel(FunASRModel):
             ys_hat = self.ctc.argmax(encoder_out).data
             cer_ctc = self.error_calculator(ys_hat.cpu(), ys_pad.cpu(), is_ctc=True)
         return loss_ctc, cer_ctc
+
+    def get_nbest_hypos_results(self, args, enc, beam_search, converter, tokenizer=None):
+        nbest_hyps = beam_search(x=enc[0], maxlenratio=args.maxlenratio, minlenratio=args.minlenratio)
+        nbest_hyps = nbest_hyps[: args.nbest]
+        results = []
+        for hyp in nbest_hyps:
+            assert isinstance(hyp, (Hypothesis)), type(hyp)
+
+            # remove sos/eos and get results
+            last_pos = -1
+            if isinstance(hyp.yseq, list):
+                token_int = hyp.yseq[1:last_pos]
+            else:
+                token_int = hyp.yseq[1:last_pos].tolist()
+
+            # remove blank symbol id, which is assumed to be 0
+            token_int = list(filter(lambda x: x != 0, token_int))
+
+            # Change integer-ids to tokens
+            token = converter.ids2tokens(token_int)
+
+            if tokenizer is not None:
+                text = tokenizer.tokens2text(token)
+            else:
+                text = None
+            results.append((text, token, token_int, hyp))
+
+        return results

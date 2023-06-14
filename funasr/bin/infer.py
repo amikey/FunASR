@@ -7,21 +7,17 @@ import argparse
 import logging
 import os
 import sys
-from pathlib import Path
-from typing import Optional
-from typing import Union
 
 import torch
 from typeguard import check_argument_types
 
+from funasr.build_utils.build_speech2output import build_speech2output
+from funasr.torch_utils.set_all_random_seed import set_all_random_seed
 from funasr.utils import config_argparse
 from funasr.utils.cli_utils import get_commandline_args
 from funasr.utils.types import str2bool
 from funasr.utils.types import str2triple_str
 from funasr.utils.types import str_or_none
-
-
-# from funasr.modules.beam_search.beam_search import BeamSearchPara as BeamSearch
 
 
 def get_parser():
@@ -258,51 +254,35 @@ def get_parser():
     return parser
 
 
-def inference(
-        maxlenratio: float,
-        minlenratio: float,
-        batch_size: int,
-        beam_size: int,
-        ngpu: int,
-        ctc_weight: float,
-        lm_weight: float,
-        penalty: float,
-        log_level: Union[int, str],
-        # data_path_and_name_and_type,
-        asr_train_config: Optional[str],
-        asr_model_file: Optional[str],
-        cmvn_file: Optional[str] = None,
-        lm_train_config: Optional[str] = None,
-        lm_file: Optional[str] = None,
-        token_type: Optional[str] = None,
-        key_file: Optional[str] = None,
-        word_lm_train_config: Optional[str] = None,
-        bpemodel: Optional[str] = None,
-        allow_variable_data_keys: bool = False,
-        dtype: str = "float32",
-        seed: int = 0,
-        ngram_weight: float = 0.9,
-        nbest: int = 1,
-        num_workers: int = 1,
-        output_dir: Optional[str] = None,
-        timestamp_infer_config: Union[Path, str] = None,
-        timestamp_model_file: Union[Path, str] = None,
-        param_dict: dict = None,
-        **kwargs
-):
+def inference(kwargs):
     assert check_argument_types()
     ncpu = kwargs.get("ncpu", 1)
     torch.set_num_threads(ncpu)
 
-    if word_lm_train_config is not None:
+    if kwargs.get("word_lm_train_config", 1) is not None:
         raise NotImplementedError("Word LM is not implemented")
-    if ngpu > 1:
+    if kwargs.get("ngpu", 1) > 1:
         raise NotImplementedError("only single GPU decoding is supported")
 
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+
     logging.basicConfig(
-        level=log_level,
+        level=kwargs["log_level"],
         format="%(asctime)s (%(module)s:%(lineno)d) %(levelname)s: %(message)s",
     )
+
+    if kwargs.get("ngpu", 1) >= 1 and torch.cuda.is_available():
+        device = "cuda"
+    else:
+        device = "cpu"
+
+    # 1. Set random-seed
+    set_all_random_seed(kwargs["seed"])
+
+    # 2. Build speech2output
+    speech2output = build_speech2output(kwargs)
+
 
 
 def main(cmd=None):
@@ -310,6 +290,12 @@ def main(cmd=None):
     parser = get_parser()
     parser.add_argument(
         "--mode",
+        type=str,
+        default="asr",
+        help="The decoding mode",
+    )
+    parser.add_argument(
+        "--task_name",
         type=str,
         default="asr",
         help="The decoding mode",
@@ -332,7 +318,7 @@ def main(cmd=None):
         os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
         os.environ["CUDA_VISIBLE_DEVICES"] = gpuid
 
-    inference_pipeline = inference(**kwargs)
+    inference_pipeline = inference(kwargs)
     return inference_pipeline(kwargs["data_path_and_name_and_type"], hotword=kwargs.get("hotword", None))
 
 
