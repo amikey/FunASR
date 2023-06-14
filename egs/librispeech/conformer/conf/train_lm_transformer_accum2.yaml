@@ -10,7 +10,7 @@ lm_conf:
 
 # optimization related
 grad_clip: 5.0
-accum_grad: 1
+accum_grad: 2
 max_epoch: 25
 
 optim: adam
