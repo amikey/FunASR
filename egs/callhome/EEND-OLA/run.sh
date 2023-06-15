@@ -168,9 +168,9 @@ fi
 world_size=$gpu_num  # run on one machine
 if [ ${stage} -le 8 ] && [ ${stop_stage} -ge 8 ]; then
     echo "stage 8: ASR Training"
-    mkdir -p ${exp_dir}/exp/${simu_allspkr_model_dir}
-    mkdir -p ${exp_dir}/exp/${simu_allspkr_model_dir}/log
-    INIT_FILE=${exp_dir}/exp/${simu_allspkr_model_dir}/ddp_init
+    mkdir -p ${exp_dir}/exp/${simu_allspkr_chunk2000_model_dir}
+    mkdir -p ${exp_dir}/exp/${simu_allspkr_chunk2000_model_dir}/log
+    INIT_FILE=${exp_dir}/exp/${simu_allspkr_chunk2000_model_dir}/ddp_init
     if [ -f $INIT_FILE ];then
         rm -f $INIT_FILE
     fi
