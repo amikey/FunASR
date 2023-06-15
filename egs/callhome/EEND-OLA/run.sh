@@ -50,7 +50,7 @@ set -o pipefail
 
 simu_2spkr_diar_config=conf/train_diar_eend_ola_2spkr.yaml
 simu_allspkr_diar_config=conf/train_diar_eend_ola_allspkr.yaml
-simu_allspkr_chunk2000_diar_config=conf/train_diar_eend_ola_allspkr.yaml
+simu_allspkr_chunk2000_diar_config=conf/train_diar_eend_ola_allspkr_chunk2000.yaml
 simu_2spkr_model_dir="baseline_$(basename "${simu_2spkr_diar_config}" .yaml)_${tag}"
 simu_allspkr_model_dir="baseline_$(basename "${simu_allspkr_diar_config}" .yaml)_${tag}"
 simu_allspkr_chunk2000_model_dir="baseline_$(basename "${simu_allspkr_chunk2000_diar_config}" .yaml)_${tag}"
