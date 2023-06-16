@@ -219,9 +219,9 @@ if [ ${stage} -le 9 ] && [ ${stop_stage} -ge 9 ]; then
     mkdir -p ${exp_dir}/exp/${callhome_model_dir}
     mkdir -p ${exp_dir}/exp/${callhome_model_dir}/log
     INIT_FILE=${exp_dir}/exp/${callhome_model_dir}/ddp_init
-    if [ -f $INIT_FILE ];then
-        rm -f $INIT_FILE
-    fi
+#    if [ -f $INIT_FILE ];then
+#        rm -f $INIT_FILE
+#    fi
     init_method=file://$(readlink -f $INIT_FILE)
     echo "$0: init method is $init_method"
 
