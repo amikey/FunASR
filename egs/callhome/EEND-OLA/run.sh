@@ -15,8 +15,11 @@ infer_cmd=utils/run.pl
 # general configuration
 simu_feats_dir="/nfs/wangjiaming.wjm/EEND_ARK_DATA/data/simu_data"
 simu_feats_dir_chunk2000="/nfs/wangjiaming.wjm/EEND_ARK_DATA/data/simu_data_chunk2000"
+callhome_feats_dir_chunk2000="/nfs/wangjiaming.wjm/EEND_ARK_DATA/data/callhome_chunk2000"
 simu_train_dataset=train
 simu_valid_dataset=dev
+callhome_train_dataset=callhome1
+callhome_valid_dataset=callhome2
 
 # model average
 simu_average_2spkr_start=91
@@ -34,7 +37,7 @@ type=sound
 scp=wav.scp
 speed_perturb="0.9 1.0 1.1"
 stage=9
-stop_stage=10
+stop_stage=9
 
 # feature configuration
 nj=64
@@ -53,7 +56,7 @@ set -o pipefail
 simu_2spkr_diar_config=conf/train_diar_eend_ola_2spkr.yaml
 simu_allspkr_diar_config=conf/train_diar_eend_ola_allspkr.yaml
 simu_allspkr_chunk2000_diar_config=conf/train_diar_eend_ola_allspkr_chunk2000.yaml
-callhome_diar_config=conf/train_diar_eend_ola_callhome.yaml
+callhome_diar_config=conf/train_diar_eend_ola_callhome_chunk2000.yaml
 simu_2spkr_model_dir="baseline_$(basename "${simu_2spkr_diar_config}" .yaml)_${tag}"
 simu_allspkr_model_dir="baseline_$(basename "${simu_allspkr_diar_config}" .yaml)_${tag}"
 simu_allspkr_chunk2000_model_dir="baseline_$(basename "${simu_allspkr_chunk2000_diar_config}" .yaml)_${tag}"
@@ -209,21 +212,13 @@ if [ ${stage} -le 8 ] && [ ${stop_stage} -ge 8 ]; then
         wait
 fi
 
-# Average model parameters
-simu_allspkr_ave_id=avg${simu_average_allspkr_start}-${simu_average_allspkr_end}
-if [ ${stage} -le 9 ] && [ ${stop_stage} -ge 9 ]; then
-    echo "averaging model parameters into $simu_allspkr_model_dir/$simu_allspkr_ave_id.pb"
-    models=`eval echo ${exp_dir}/exp/${simu_allspkr_model_dir}/{$simu_average_allspkr_start..$simu_average_allspkr_end}epoch.pb`
-    python local/model_averaging.py ${exp_dir}/exp/${simu_allspkr_model_dir}/$simu_allspkr_ave_id.pb $models
-fi
-
 # ASR Training Stage
 world_size=$gpu_num  # run on one machine
-if [ ${stage} -le 10 ] && [ ${stop_stage} -ge 10 ]; then
+if [ ${stage} -le 9 ] && [ ${stop_stage} -ge 10 ]; then
     echo "stage 8: ASR Training"
-    mkdir -p ${exp_dir}/exp/${simu_allspkr_chunk2000_model_dir}
-    mkdir -p ${exp_dir}/exp/${simu_allspkr_chunk2000_model_dir}/log
-    INIT_FILE=${exp_dir}/exp/${simu_allspkr_chunk2000_model_dir}/ddp_init
+    mkdir -p ${exp_dir}/exp/${callhome_model_dir}
+    mkdir -p ${exp_dir}/exp/${callhome_model_dir}/log
+    INIT_FILE=${exp_dir}/exp/${callhome_model_dir}/ddp_init
     if [ -f $INIT_FILE ];then
         rm -f $INIT_FILE
     fi
@@ -239,20 +234,20 @@ if [ ${stage} -le 10 ] && [ ${stop_stage} -ge 10 ]; then
                 --gpu_id $gpu_id \
                 --use_preprocessor false \
                 --input_size $input_size \
-                --data_dir ${simu_feats_dir_chunk2000} \
-                --train_set ${simu_train_dataset} \
-                --valid_set ${simu_valid_dataset} \
+                --data_dir ${callhome_feats_dir_chunk2000} \
+                --train_set ${callhome_train_dataset} \
+                --valid_set ${callhome_valid_dataset} \
                 --data_file_names "feats.scp,speaker_labels.json" \
                 --resume true \
-                --init_param ${exp_dir}/exp/${simu_allspkr_model_dir}/$simu_allspkr_ave_id.pb \
-                --output_dir ${exp_dir}/exp/${simu_allspkr_chunk2000_model_dir} \
-                --config $simu_allspkr_chunk2000_diar_config \
+                --init_param ${exp_dir}/exp/${simu_allspkr_chunk2000_model_dir}/1epoch.pb \
+                --output_dir ${exp_dir}/exp/${callhome_model_dir} \
+                --config $callhome_diar_config \
                 --ngpu $gpu_num \
                 --num_worker_count $count \
                 --dist_init_method $init_method \
                 --dist_world_size $world_size \
                 --dist_rank $rank \
-                --local_rank $local_rank 1> ${exp_dir}/exp/${simu_allspkr_chunk2000_model_dir}/log/train.log.$i 2>&1
+                --local_rank $local_rank 1> ${exp_dir}/exp/${callhome_model_dir}/log/train.log.$i 2>&1
         } &
         done
         wait
