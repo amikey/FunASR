@@ -224,9 +224,9 @@ if [ ${stage} -le 9 ] && [ ${stop_stage} -ge 9 ]; then
 #    fi
     init_method=file://$(readlink -f $INIT_FILE)
     echo "$0: init method is $init_method"
-
+    i=0
     rank=0
-    local_rank=$i
+    local_rank=0
     gpu_id=$(echo $CUDA_VISIBLE_DEVICES | cut -d',' -f$[$i+1])
     train.py \
         --task_name diar \
