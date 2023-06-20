@@ -1,13 +1,10 @@
-from itertools import permutations
-
 import numpy as np
 import torch
 import torch.nn.functional as F
 from scipy.optimize import linear_sum_assignment
-from torch import nn
 
 
-def standard_loss(ys, ts, label_delay=0):
+def standard_loss(ys, ts):
     losses = [F.binary_cross_entropy(torch.sigmoid(y), t) * len(y) for y, t in zip(ys, ts)]
     loss = torch.sum(torch.stack(losses))
     n_frames = torch.from_numpy(np.array(np.sum([t.shape[0] for t in ts]))).to(torch.float32).to(ys[0].device)
@@ -15,24 +12,7 @@ def standard_loss(ys, ts, label_delay=0):
     return loss
 
 
-def fast_matcher(ys, ts):
-    bs = len(ys)
-    indices = []
-    for b in range(bs):
-        y = ys[b].transpose(0, 1)
-        t = ts[b].transpose(0, 1)
-        C, _ = t.shape
-        y = y[:, None, :].repeat(1, C, 1)
-        t = t[None, :, :].repeat(C, 1, 1)
-        bce_loss = F.binary_cross_entropy(torch.sigmoid(y), t, reduction="none").mean(-1)
-
-        C = bce_loss.cpu()
-
-        indices.append(linear_sum_assignment(C))
-    return indices
-
-
-def batch_pit_n_speaker_loss(ys, ts, n_speakers_list):
+def batch_pit_n_speaker_loss(ys, ts):
     with torch.no_grad():
         bs = len(ys)
         indices = []

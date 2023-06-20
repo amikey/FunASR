@@ -36,8 +36,8 @@ input_size=345
 type=sound
 scp=wav.scp
 speed_perturb="0.9 1.0 1.1"
-stage=9
-stop_stage=9
+stage=10
+stop_stage=10
 
 # feature configuration
 nj=64
@@ -117,7 +117,7 @@ fi
 # Average model parameters
 simu_2spkr_ave_id=avg${simu_average_2spkr_start}-${simu_average_2spkr_end}
 if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
-    echo "averaging model parameters into $simu_2spkr_model_dir/$simu_2spkr_ave_id.pb"
+    echo "averaging model parameters into ${exp_dir}/exp/$simu_2spkr_model_dir/$simu_2spkr_ave_id.pb"
     models=`eval echo ${exp_dir}/exp/${simu_2spkr_model_dir}/{$simu_average_2spkr_start..$simu_average_2spkr_end}epoch.pb`
     python local/model_averaging.py ${exp_dir}/exp/${simu_2spkr_model_dir}/$simu_2spkr_ave_id.pb $models
 fi
@@ -166,7 +166,7 @@ fi
 # Average model parameters
 simu_allspkr_ave_id=avg${simu_average_allspkr_start}-${simu_average_allspkr_end}
 if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
-    echo "averaging model parameters into $simu_allspkr_model_dir/$simu_allspkr_ave_id.pb"
+    echo "averaging model parameters into ${exp_dir}/exp/$simu_allspkr_model_dir/$simu_allspkr_ave_id.pb"
     models=`eval echo ${exp_dir}/exp/${simu_allspkr_model_dir}/{$simu_average_allspkr_start..$simu_average_allspkr_end}epoch.pb`
     python local/model_averaging.py ${exp_dir}/exp/${simu_allspkr_model_dir}/$simu_allspkr_ave_id.pb $models
 fi
@@ -215,7 +215,7 @@ fi
 # ASR Training Stage
 world_size=$gpu_num  # run on one machine
 if [ ${stage} -le 9 ] && [ ${stop_stage} -ge 9 ]; then
-    echo "stage 8: ASR Training"
+    echo "stage 9: ASR Training"
     mkdir -p ${exp_dir}/exp/${callhome_model_dir}
     mkdir -p ${exp_dir}/exp/${callhome_model_dir}/log
     INIT_FILE=${exp_dir}/exp/${callhome_model_dir}/ddp_init
@@ -251,4 +251,12 @@ if [ ${stage} -le 9 ] && [ ${stop_stage} -ge 9 ]; then
         } &
         done
         wait
+fi
+
+# Average model parameters
+callhome_ave_id=avg${callhome_average_start}-${callhome_average_end}
+if [ ${stage} -le 10 ] && [ ${stop_stage} -ge 10 ]; then
+    echo "averaging model parameters into ${exp_dir}/exp/$callhome_model_dir/$callhome_ave_id.pb"
+    models=`eval echo ${exp_dir}/exp/${callhome_model_dir}/{$callhome_average_start..$callhome_average_end}epoch.pb`
+    python local/model_averaging.py ${exp_dir}/exp/${callhome_model_dir}/$callhome_ave_id.pb $models
 fi
