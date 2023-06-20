@@ -134,11 +134,10 @@ class DiarEENDOLAModel(FunASRModel):
         speaker_logits = [torch.matmul(e, att.permute(1, 0)) for e, att in zip(encoder_out, attractors)]
 
         # pit loss
-        max_n_speakers = max(speaker_labels_lengths)
-        speaker_labels_padded = pad_labels(speaker_labels, max_n_speakers)  # [(T1, C_max), ..., (TB, C_max)]
-        speaker_logits_padded = pad_results(speaker_logits, max_n_speakers)  # [(T1, C_max), ..., (TB, C_max)]
-        _, pit_speaker_labels = batch_pit_n_speaker_loss(speaker_logits_padded, speaker_labels_padded,
-                                                         speaker_labels_lengths)
+        # max_n_speakers = max(speaker_labels_lengths)
+        # speaker_labels_padded = pad_labels(speaker_labels, max_n_speakers)  # [(T1, C_max), ..., (TB, C_max)]
+        # speaker_logits_padded = pad_results(speaker_logits, max_n_speakers)  # [(T1, C_max), ..., (TB, C_max)]
+        pit_speaker_labels = batch_pit_n_speaker_loss(speaker_logits, speaker_labels, speaker_labels_lengths)
         pit_loss = standard_loss(speaker_logits, pit_speaker_labels)
 
         # pse loss
