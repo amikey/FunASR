@@ -23,7 +23,7 @@ class Paraformer_dashscope():
     def __init__(self, model_dir: Union[str, Path] = None,
                  batch_size: int = 1,
                  chunk_size: List = [15, 90, 15],
-                 quantize: bool = False,
+                 quantize: bool = True,
                  device_id: Union[str, int] = "-1",
                  pred_bias: int = 1,
                  intra_op_num_threads: int = 4,
