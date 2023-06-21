@@ -1,6 +1,8 @@
-from funasr.models.e2e_asr_paraformer import Paraformer, BiCifParaformer
+from funasr.models.e2e_asr_paraformer import Paraformer, BiCifParaformer, ParaformerOnline
 from funasr.export.models.e2e_asr_paraformer import Paraformer as Paraformer_export
 from funasr.export.models.e2e_asr_paraformer import BiCifParaformer as BiCifParaformer_export
+from funasr.export.models.e2e_asr_paraformer import ParaformerOnline_encoder_predictor as ParaformerOnline_encoder_predictor_export
+from funasr.export.models.e2e_asr_paraformer import Paraformer_decoder as Paraformer_decoder_export
 from funasr.models.e2e_vad import E2EVadModel
 from funasr.export.models.e2e_vad import E2EVadModel as E2EVadModel_export
 from funasr.models.target_delay_transformer import TargetDelayTransformer
@@ -12,6 +14,9 @@ from funasr.export.models.CT_Transformer import CT_Transformer_VadRealtime as CT
 def get_model(model, export_config=None):
     if isinstance(model, BiCifParaformer):
         return BiCifParaformer_export(model, **export_config)
+    elif isinstance(model, ParaformerOnline):
+        return (ParaformerOnline_encoder_predictor_export(model, model_name=export_config.get('model_name', ['encoder', 'decoder'])[0]),
+                Paraformer_decoder_export(model, model_name=export_config.get('model_name', ['encoder', 'decoder'])[1]))
     elif isinstance(model, Paraformer):
         return Paraformer_export(model, **export_config)
     elif isinstance(model, E2EVadModel):
@@ -23,3 +28,4 @@ def get_model(model, export_config=None):
             return CT_Transformer_VadRealtime_export(model.punc_model, **export_config)
     else:
         raise "Funasr does not support the given model type currently."
+

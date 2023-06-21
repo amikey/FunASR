@@ -157,3 +157,4 @@ class ParaformerSANMDecoder(nn.Module):
             "n_layers": len(self.model.decoders) + len(self.model.decoders2),
             "odim": self.model.decoders[0].size
         }
+
