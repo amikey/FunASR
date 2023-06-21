@@ -170,9 +170,9 @@ class Paraformer_dashscope():
                 preds = ['']
             else:
                 preds = self.decode(am_scores, pre_token_length)
-                for id, pred in zip(id_list_chunk, preds):
+                for pred in preds:
                     pred = sentence_postprocess(pred)
-                    asr_res.append({'id': id, 'preds': pred})
+                    asr_res.append({'preds': pred})
         return asr_res
 
     def load_data(self,
@@ -194,6 +194,8 @@ class Paraformer_dashscope():
                     lines = file.readlines()
                 return [(item.strip().split()[0], load_wav(item.strip().split()[1])) for item in lines]
 
+        if isinstance(wav_content, list):
+            return [("test", load_wav(path)) for path in wav_content]
         raise TypeError(
             f'The type of {wav_content} is not in [str, np.ndarray]')
 
