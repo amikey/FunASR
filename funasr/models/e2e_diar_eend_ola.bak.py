@@ -109,14 +109,19 @@ class DiarEENDOLAModel(FunASRModel):
     def forward(
             self,
             speech: List[torch.Tensor],
+            speech_lengths: torch.Tensor,  # num_frames of each sample
             speaker_labels: List[torch.Tensor],
+            speaker_labels_lengths: torch.Tensor,  # num_speakers of each sample
             orders: torch.Tensor,
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], torch.Tensor]:
 
         # Check that batch_size is unified
-        assert (len(speech) == len(speaker_labels)), (len(speech), len(speaker_labels))
-        speech_lengths = torch.tensor([len(sph) for sph in speech]).to(torch.int64)
-        speaker_labels_lengths = torch.tensor([spk.shape[-1] for spk in speaker_labels]).to(torch.int64)
+        assert (
+                len(speech)
+                == len(speech_lengths)
+                == len(speaker_labels)
+                == len(speaker_labels_lengths)
+        ), (len(speech), len(speech_lengths), len(speaker_labels), len(speaker_labels_lengths))
         batch_size = len(speech)
 
         # Encoder
