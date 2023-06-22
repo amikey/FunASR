@@ -120,7 +120,7 @@ class DiarEENDOLAModel(FunASRModel):
         batch_size = len(speech)
 
         # Encoder
-        speech = [s[:s_len] for s, s_len in zip(speech, speech_lengths)]
+        # speech = [s[:s_len] for s, s_len in zip(speech, speech_lengths)]
         encoder_out = self.forward_encoder(speech, speech_lengths)
 
         # Encoder-decoder attractor

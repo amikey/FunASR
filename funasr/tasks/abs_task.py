@@ -1379,7 +1379,18 @@ class AbsTask(ABC):
                 from funasr.datasets.large_datasets.build_dataloader import LargeDataLoader
                 train_iter_factory = LargeDataLoader(args, mode="train")
                 valid_iter_factory = LargeDataLoader(args, mode="eval")
-
+            elif args.dataset_type == "eend_ola":
+                from funasr.modules.eend_ola.eend_ola_dataloader import EENDOLADataLoader
+                train_iter_factory = EENDOLADataLoader(
+                    data_file=args.train_data_path_and_name_and_type[0][0],
+                    batch_size=args.dataset_conf["batch_conf"]["batch_size"],
+                    num_workers=args.dataset_conf["num_workers"],
+                    shuffle=True)
+                valid_iter_factory = EENDOLADataLoader(
+                    data_file=args.valid_data_path_and_name_and_type[0][0],
+                    batch_size=args.dataset_conf["batch_conf"]["batch_size"],
+                    num_workers=0,
+                    shuffle=False)
             elif args.dataset_type == "small":
                 train_iter_factory = cls.build_iter_factory(
                     args=args,
