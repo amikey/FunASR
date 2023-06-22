@@ -46,5 +46,5 @@ class EENDOLADataLoader():
                                       shuffle=shuffle,
                                       num_workers=num_workers)
 
-    def build_iter(self, **kwargs):
+    def build_iter(self, epoch):
         return self.data_loader
