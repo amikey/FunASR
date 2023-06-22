@@ -94,7 +94,7 @@ if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
                 --data_dir ${simu_feats_dir} \
                 --train_set ${simu_train_dataset} \
                 --valid_set ${simu_valid_dataset} \
-                --data_file_names "feats_2spkr.scp,speaker_labels_2spkr.json" \
+                --data_file_names "feats_2spkr.scp" \
                 --resume true \
                 --output_dir ${exp_dir}/exp/${simu_2spkr_model_dir} \
                 --config $simu_2spkr_diar_config \
@@ -142,7 +142,7 @@ if [ ${stage} -le 6 ] && [ ${stop_stage} -ge 6 ]; then
                 --data_dir ${simu_feats_dir} \
                 --train_set ${simu_train_dataset} \
                 --valid_set ${simu_valid_dataset} \
-                --data_file_names "feats.scp,speaker_labels.json" \
+                --data_file_names "feats.scp" \
                 --resume true \
                 --init_param ${exp_dir}/exp/${simu_2spkr_model_dir}/$simu_2spkr_ave_id.pb \
                 --output_dir ${exp_dir}/exp/${simu_allspkr_model_dir} \
@@ -191,7 +191,7 @@ if [ ${stage} -le 8 ] && [ ${stop_stage} -ge 8 ]; then
                 --data_dir ${simu_feats_dir_chunk2000} \
                 --train_set ${simu_train_dataset} \
                 --valid_set ${simu_valid_dataset} \
-                --data_file_names "feats.scp,speaker_labels.json" \
+                --data_file_names "feats.scp" \
                 --resume true \
                 --init_param ${exp_dir}/exp/${simu_allspkr_model_dir}/$simu_allspkr_ave_id.pb \
                 --output_dir ${exp_dir}/exp/${simu_allspkr_chunk2000_model_dir} \
@@ -232,7 +232,7 @@ if [ ${stage} -le 9 ] && [ ${stop_stage} -ge 9 ]; then
                 --data_dir ${callhome_feats_dir_chunk2000} \
                 --train_set ${callhome_train_dataset} \
                 --valid_set ${callhome_valid_dataset} \
-                --data_file_names "feats.scp,speaker_labels.json" \
+                --data_file_names "feats.scp" \
                 --resume true \
                 --init_param ${exp_dir}/exp/${simu_allspkr_chunk2000_model_dir}/1epoch.pb \
                 --output_dir ${exp_dir}/exp/${callhome_model_dir} \

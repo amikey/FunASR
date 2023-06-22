@@ -14,13 +14,12 @@ encoder_decoder_attractor_conf:
 # model related
 model: eend_ola
 model_conf:
-    attractor_loss_weight:  0.01
     max_n_speaker: 8
 
 # optimization related
 accum_grad: 1
 grad_clip: 5
-max_epoch: 100
+max_epoch: 1
 val_scheduler_criterion:
     - valid
     - loss
@@ -39,8 +38,8 @@ optim_conf:
     eps: 1.0e-9
 
 dataset_conf:
-    data_names: speech_speaker_labels
-    data_types: kaldi_ark
+    data_names: speech,speaker_labels
+    data_types: kaldi_ark,json
     batch_conf:
         batch_type: unsorted
         batch_size: 8

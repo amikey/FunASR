@@ -38,8 +38,8 @@ optim_conf:
     eps: 1.0e-9
 
 dataset_conf:
-    data_names: speech,speaker_labels
-    data_types: kaldi_ark,json
+    data_names: speech_speaker_labels
+    data_types: kaldi_ark
     batch_conf:
         batch_type: unsorted
         batch_size: 8
