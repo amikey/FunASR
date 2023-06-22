@@ -105,6 +105,8 @@ def load_pretrained_model(
     else:
         buffer = BytesIO(oss_bucket.get_object(path).read())
         src_state = torch.load(buffer, map_location=map_location)
+    if "state_dict" in src_state.keys():
+        src_state = src_state["state_dict"]
     if excludes is not None:
         for e in excludes.split(","):
             src_state = {k: v for k, v in src_state.items() if not k.startswith(e)}
@@ -120,6 +122,11 @@ def load_pretrained_model(
     if ignore_init_mismatch:
         src_state = filter_state_dict(dst_state, src_state)
 
+    new_src_state = {}
+    for k, v in src_state.items():
+        k = k.replace("eda", "encoder_decoder_attractor")
+        new_src_state[k] = v
+
     # logging.info("Loaded src_state keys: {}".format(src_state.keys()))
-    dst_state.update(src_state)
+    dst_state.update(new_src_state)
     obj.load_state_dict(dst_state)
