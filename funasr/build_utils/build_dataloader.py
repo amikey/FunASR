@@ -4,7 +4,7 @@ from funasr.datasets.small_datasets.sequence_iter_factory import SequenceIterFac
 
 def build_dataloader(args):
     if args.dataset_type == "small":
-        if args.task_name == "diar" and args.model == "eend_ola" and args.dataset_conf.data_names == "speech_speaker_labels":
+        if args.task_name == "diar" and args.model == "eend_ola" and args.dataset_conf["data_names"] == "speech_speaker_labels":
             from funasr.modules.eend_ola.eend_ola_dataloader import EENDOLADataLoader
             train_iter_factory = EENDOLADataLoader(
                 data_file=args.train_data_path_and_name_and_type[0][0],
