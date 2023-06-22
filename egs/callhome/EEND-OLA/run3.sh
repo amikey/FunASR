@@ -86,7 +86,7 @@ if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
             rank=$i
             local_rank=$i
             gpu_id=$(echo $CUDA_VISIBLE_DEVICES | cut -d',' -f$[$i+1])
-            eend_old_diar_train..py \
+            eend_old_diar_train.py \
                 --gpu_id $gpu_id \
                 --use_preprocessor false \
                 --input_size $input_size \

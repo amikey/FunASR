@@ -47,4 +47,3 @@ dataset_conf:
     num_workers: 8
 
 log_interval: 50
-normalize: None
