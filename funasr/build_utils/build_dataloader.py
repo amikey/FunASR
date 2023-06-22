@@ -14,7 +14,7 @@ def build_dataloader(args):
             valid_iter_factory = EENDOLADataLoader(
                 data_file=args.valid_data_path_and_name_and_type[0][0],
                 batch_size=args.dataset_conf["batch_conf"]["batch_size"],
-                num_workers=args.dataset_conf["num_workers"],
+                num_workers=0,
                 shuffle=False)
         else:
             train_iter_factory = SequenceIterFactory(args, mode="train")

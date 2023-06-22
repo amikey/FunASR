@@ -12,7 +12,7 @@ from funasr.models.base_model import FunASRModel
 from funasr.models.frontend.wav_frontend import WavFrontendMel23
 from funasr.modules.eend_ola.encoder import EENDOLATransformerEncoder
 from funasr.modules.eend_ola.encoder_decoder_attractor import EncoderDecoderAttractor
-from funasr.modules.eend_ola.utils.losses import batch_pit_n_speaker_loss, standard_loss, cal_power_loss
+from funasr.modules.eend_ola.utils.losses import batch_pit_n_speaker_loss, standard_loss, cal_power_loss, fast_batch_pit_n_speaker_loss
 from funasr.modules.eend_ola.utils.power import create_powerlabel
 from funasr.modules.eend_ola.utils.power import generate_mapping_dict
 from funasr.torch_utils.device_funcs import force_gatherable
@@ -129,8 +129,11 @@ class DiarEENDOLAModel(FunASRModel):
         speaker_logits = [torch.matmul(e, att.permute(1, 0)) for e, att in zip(encoder_out, attractors)]
 
         # pit loss
-        pit_speaker_labels = batch_pit_n_speaker_loss(speaker_logits, speaker_labels)
-        pit_loss = standard_loss(speaker_logits, pit_speaker_labels)
+        ts_padded = pad_labels(speaker_labels, speaker_labels_lengths.max())  # [(T1, C_max), ..., (TB, C_max)]
+        ys_padded = pad_results(speaker_logits, speaker_labels_lengths.max())  # [(T1, C_max), ..., (TB, C_max)]
+        _, labels = batch_pit_n_speaker_loss(ys_padded, ts_padded, speaker_labels_lengths)
+        # pit_speaker_labels = fast_batch_pit_n_speaker_loss(speaker_logits, speaker_labels)
+        pit_loss = standard_loss(speaker_logits, labels)
 
         # pse loss
         with torch.no_grad():
