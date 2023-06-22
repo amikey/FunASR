@@ -7,9 +7,9 @@ from torch.utils.data import Dataset
 
 def custom_collate(batch):
     _, speech, speaker_labels, orders = zip(*batch)
-    speech = [torch.from_numpy(sph).to(torch.float32) for sph in speech]
-    speaker_labels = [torch.from_numpy(spk).to(torch.float32) for spk in speaker_labels]
-    orders = [torch.from_numpy(o).to(torch.int64) for o in orders]
+    speech = [torch.from_numpy(np.copy(sph)).to(torch.float32) for sph in speech]
+    speaker_labels = [torch.from_numpy(np.copy(spk)).to(torch.float32) for spk in speaker_labels]
+    orders = [torch.from_numpy(np.copy(o)).to(torch.int64) for o in orders]
     return speech, speaker_labels, orders
 
 
@@ -46,5 +46,5 @@ class EENDOLADataLoader():
                                       shuffle=shuffle,
                                       num_workers=num_workers)
 
-    def build_iter(self):
+    def build_iter(self, **kwargs):
         return self.data_loader
