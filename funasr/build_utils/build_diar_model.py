@@ -6,6 +6,7 @@ from funasr.layers.global_mvn import GlobalMVN
 from funasr.layers.label_aggregation import LabelAggregate
 from funasr.layers.utterance_mvn import UtteranceMVN
 from funasr.models.e2e_diar_eend_ola import DiarEENDOLAModel
+from funasr.models.e2e_diar_eend_ola_similar_eend import DiarEENDOLAModel as DiarEENDOLAModelEEND
 from funasr.models.e2e_diar_sond import DiarSondModel
 from funasr.models.encoder.conformer_encoder import ConformerEncoder
 from funasr.models.encoder.data2vec_encoder import Data2VecEncoder
@@ -74,6 +75,7 @@ model_choices = ClassChoices(
     classes=dict(
         sond=DiarSondModel,
         eend_ola=DiarEENDOLAModel,
+        eend_ola_similar_eend=DiarEENDOLAModelEEND,
     ),
     default="sond",
 )

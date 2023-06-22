@@ -36,7 +36,7 @@ input_size=345
 type=sound
 scp=wav.scp
 speed_perturb="0.9 1.0 1.1"
-stage=10
+stage=8
 stop_stage=10
 
 # feature configuration
