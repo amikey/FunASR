@@ -10,7 +10,9 @@ def custom_collate(batch):
     speech = [torch.from_numpy(np.copy(sph)).to(torch.float32) for sph in speech]
     speaker_labels = [torch.from_numpy(np.copy(spk)).to(torch.float32) for spk in speaker_labels]
     orders = [torch.from_numpy(np.copy(o)).to(torch.int64) for o in orders]
-    return speech, speaker_labels, orders
+    return dict(speech=speech,
+                speaker_labels=speaker_labels,
+                orders=orders)
 
 
 class EENDOLADataset(Dataset):
