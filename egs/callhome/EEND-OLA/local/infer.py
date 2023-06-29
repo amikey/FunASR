@@ -87,7 +87,7 @@ if __name__ == '__main__':
     torch.cuda.manual_seed(args.seed)
     os.environ['PYTORCH_SEED'] = str(args.seed)
 
-    model = build_model_from_file(config_file=args.config_file, model_file=args.model_file, task_name="diar",
+    model, _ = build_model_from_file(config_file=args.config_file, model_file=args.model_file, task_name="diar",
                                   device=args.device)
     model.eval()
 
