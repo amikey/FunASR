@@ -261,7 +261,7 @@ fi
 if [ ${stage} -le 11 ] && [ ${stop_stage} -ge 11 ]; then
     echo "Inference"
     mkdir -p ${exp_dir}/exp/${callhome_model_dir}/inference
-    python local/infer.py \
+    CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES python local/infer.py \
         --config_file ${exp_dir}/exp/${callhome_model_dir}/config.yaml \
         --model_file ${exp_dir}/exp/${callhome_model_dir}/$callhome_ave_id.pb \
         --output_rttm_file ${exp_dir}/exp/${callhome_model_dir}/inference/rttm \
