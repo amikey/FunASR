@@ -1,3 +1,5 @@
+import logging
+
 import kaldiio
 import numpy as np
 import torch
@@ -11,8 +13,8 @@ def custom_collate(batch):
     speaker_labels = [torch.from_numpy(np.copy(spk)).to(torch.float32) for spk in speaker_labels]
     orders = [torch.from_numpy(np.copy(o)).to(torch.int64) for o in orders]
     batch = dict(speech=speech,
-                speaker_labels=speaker_labels,
-                orders=orders)
+                 speaker_labels=speaker_labels,
+                 orders=orders)
 
     return keys, batch
 
@@ -26,6 +28,7 @@ class EENDOLADataset(Dataset):
         with open(data_file) as f:
             lines = f.readlines()
         self.samples = [line.strip().split() for line in lines]
+        logging.info("total samples: {}".format(len(self.samples)))
 
     def __len__(self):
         return len(self.samples)
