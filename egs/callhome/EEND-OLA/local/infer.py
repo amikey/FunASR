@@ -78,13 +78,16 @@ if __name__ == '__main__':
 
     with open(args.config_file) as f:
         configs = yaml.safe_load(f)
+        for k, v in configs.items():
+            if not hasattr(args, k):
+                setattr(args, k, v)
 
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
     os.environ['PYTORCH_SEED'] = str(args.seed)
 
-    model = build_model_from_file(config_file=args.config, model_file=args.model_file, task_name="diar",
+    model = build_model_from_file(config_file=args.config_file, model_file=args.model_file, task_name="diar",
                                   device=args.device)
     model.eval()
 
@@ -92,8 +95,10 @@ if __name__ == '__main__':
         wav_lines = [line.strip().split() for line in f.readlines()]
         wav_items = {x[0]: x[1] for x in wav_lines}
 
+    print("Start inference")
     with open(args.output_rttm_file, "w") as wf:
         for wav_id in wav_items.keys():
+            print("Process wav: {}\n".format(wav_id))
             data, rate = sf.read(wav_items[wav_id])
             speech = eend_ola_feature.stft(data, args.frame_size, args.frame_shift)
             speech = eend_ola_feature.transform(speech)
