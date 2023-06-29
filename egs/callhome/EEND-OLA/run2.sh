@@ -38,7 +38,7 @@ stop_stage=10
 nj=64
 
 # exp tag
-tag="exp2"
+tag="exp2_encoder"
 
 . utils/parse_options.sh || exit 1;
 
