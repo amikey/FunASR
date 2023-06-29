@@ -20,6 +20,7 @@ simu_train_dataset=train
 simu_valid_dataset=dev
 callhome_train_dataset=callhome1_allspk
 callhome_valid_dataset=callhome2_allspk
+callhome2_wav_scp_file=wav.scp
 
 # model average
 simu_average_2spkr_start=91
@@ -254,4 +255,15 @@ if [ ${stage} -le 10 ] && [ ${stop_stage} -ge 10 ]; then
     echo "averaging model parameters into ${exp_dir}/exp/$callhome_model_dir/$callhome_ave_id.pb"
     models=`eval echo ${exp_dir}/exp/${callhome_model_dir}/{$callhome_average_start..$callhome_average_end}epoch.pb`
     python local/model_averaging.py ${exp_dir}/exp/${callhome_model_dir}/$callhome_ave_id.pb $models
+fi
+
+# inference
+if [ ${stage} -le 11 ] && [ ${stop_stage} -ge 11 ]; then
+    echo "Inference"
+    mkdir -p ${exp_dir}/exp/${callhome_model_dir}/inference
+    python local/infer.py \
+        --config_file ${exp_dir}/exp/${callhome_model_dir}/config.yaml \
+        --model_file ${exp_dir}/exp/${callhome_model_dir}/$callhome_ave_id.pb \
+        --output_rttm_file ${exp_dir}/exp/${callhome_model_dir}/inference/rttm \
+        --wav_scp_file ${callhome_feats_dir_chunk2000}/${callhome_valid_dataset}/${callhome2_wav_scp_file}
 fi
