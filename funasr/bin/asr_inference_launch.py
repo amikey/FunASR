@@ -1259,27 +1259,27 @@ def inference_transducer(
         nbest: int,
         num_workers: int,
         log_level: Union[int, str],
-        data_path_and_name_and_type: Sequence[Tuple[str, str, str]],
+        # data_path_and_name_and_type: Sequence[Tuple[str, str, str]],
         asr_train_config: Optional[str],
         asr_model_file: Optional[str],
-        cmvn_file: Optional[str],
-        beam_search_config: Optional[dict],
-        lm_train_config: Optional[str],
-        lm_file: Optional[str],
-        model_tag: Optional[str],
-        token_type: Optional[str],
-        bpemodel: Optional[str],
-        key_file: Optional[str],
-        allow_variable_data_keys: bool,
-        quantize_asr_model: Optional[bool],
-        quantize_modules: Optional[List[str]],
-        quantize_dtype: Optional[str],
-        streaming: Optional[bool],
-        simu_streaming: Optional[bool],
-        chunk_size: Optional[int],
-        left_context: Optional[int],
-        right_context: Optional[int],
-        display_partial_hypotheses: bool,
+        cmvn_file: Optional[str] = None,
+        beam_search_config: Optional[dict] = None,
+        lm_train_config: Optional[str] = None,
+        lm_file: Optional[str] = None,
+        model_tag: Optional[str] = None,
+        token_type: Optional[str] = None,
+        bpemodel: Optional[str] = None,
+        key_file: Optional[str] = None,
+        allow_variable_data_keys: bool = False,
+        quantize_asr_model: Optional[bool] = False,
+        quantize_modules: Optional[List[str]] = None,
+        quantize_dtype: Optional[str] = "float16",
+        streaming: Optional[bool] = False,
+        simu_streaming: Optional[bool] = False,
+        chunk_size: Optional[int] = 16,
+        left_context: Optional[int] = 16,
+        right_context: Optional[int] = 0,
+        display_partial_hypotheses: bool = False,
         **kwargs,
 ) -> None:
     """Transducer model inference.
@@ -1314,7 +1314,7 @@ def inference_transducer(
         right_context: Number of frames in right context AFTER subsampling.
         display_partial_hypotheses: Whether to display partial hypotheses.
     """
-    assert check_argument_types()
+    # assert check_argument_types()
 
     if batch_size > 1:
         raise NotImplementedError("batch decoding is not implemented")
