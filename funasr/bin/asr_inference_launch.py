@@ -1379,47 +1379,55 @@ def inference_transducer(
             key_file=key_file,
             num_workers=num_workers,
         )
+        asr_result_list = []
+
+        if output_dir is not None:
+            writer = DatadirWriter(output_dir)
+        else:
+            writer = None
 
         # 4 .Start for-loop
-        with DatadirWriter(output_dir) as writer:
-            for keys, batch in loader:
-                assert isinstance(batch, dict), type(batch)
-                assert all(isinstance(s, str) for s in keys), keys
+        for keys, batch in loader:
+            assert isinstance(batch, dict), type(batch)
+            assert all(isinstance(s, str) for s in keys), keys
 
-                _bs = len(next(iter(batch.values())))
-                assert len(keys) == _bs, f"{len(keys)} != {_bs}"
-                batch = {k: v[0] for k, v in batch.items() if not k.endswith("_lengths")}
-                assert len(batch.keys()) == 1
+            _bs = len(next(iter(batch.values())))
+            assert len(keys) == _bs, f"{len(keys)} != {_bs}"
+            batch = {k: v[0] for k, v in batch.items() if not k.endswith("_lengths")}
+            assert len(batch.keys()) == 1
 
-                try:
-                    if speech2text.streaming:
-                        speech = batch["speech"]
+            try:
+                if speech2text.streaming:
+                    speech = batch["speech"]
 
-                        _steps = len(speech) // speech2text._ctx
-                        _end = 0
-                        for i in range(_steps):
-                            _end = (i + 1) * speech2text._ctx
+                    _steps = len(speech) // speech2text._ctx
+                    _end = 0
+                    for i in range(_steps):
+                        _end = (i + 1) * speech2text._ctx
 
-                            speech2text.streaming_decode(
-                                speech[i * speech2text._ctx: _end], is_final=False
-                            )
-
-                        final_hyps = speech2text.streaming_decode(
-                            speech[_end: len(speech)], is_final=True
+                        speech2text.streaming_decode(
+                            speech[i * speech2text._ctx: _end], is_final=False
                         )
-                    elif speech2text.simu_streaming:
-                        final_hyps = speech2text.simu_streaming_decode(**batch)
-                    else:
-                        final_hyps = speech2text(**batch)
 
-                    results = speech2text.hypotheses_to_results(final_hyps)
-                except TooShortUttError as e:
-                    logging.warning(f"Utterance {keys} {e}")
-                    hyp = Hypothesis(score=0.0, yseq=[], dec_state=None)
-                    results = [[" ", ["<space>"], [2], hyp]] * nbest
+                    final_hyps = speech2text.streaming_decode(
+                        speech[_end: len(speech)], is_final=True
+                    )
+                elif speech2text.simu_streaming:
+                    final_hyps = speech2text.simu_streaming_decode(**batch)
+                else:
+                    final_hyps = speech2text(**batch)
 
-                key = keys[0]
-                for n, (text, token, token_int, hyp) in zip(range(1, nbest + 1), results):
+                results = speech2text.hypotheses_to_results(final_hyps)
+            except TooShortUttError as e:
+                logging.warning(f"Utterance {keys} {e}")
+                hyp = Hypothesis(score=0.0, yseq=[], dec_state=None)
+                results = [[" ", ["<space>"], [2], hyp]] * nbest
+
+            key = keys[0]
+            for n, (text, token, token_int, hyp) in zip(range(1, nbest + 1), results):
+                item = {'key': key, 'value': text}
+                asr_result_list.append(item)
+                if writer is not None:
                     ibest_writer = writer[f"{n}best_recog"]
 
                     ibest_writer["token"][key] = " ".join(token)
@@ -1429,6 +1437,8 @@ def inference_transducer(
                     if text is not None:
                         ibest_writer["text"][key] = text
 
+                logging.info("decoding, utt: {}, predictions: {}".format(key, text))
+        return asr_result_list
     return _forward
 
 
