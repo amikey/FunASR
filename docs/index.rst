@@ -68,18 +68,21 @@ Overview
    ./runtime/onnxruntime_python.md
    ./runtime/onnxruntime_cpp.md
    ./runtime/libtorch_python.md
-   ./runtime/grpc_python.md
-   ./runtime/grpc_cpp.md
+   ./runtime/html5.md
    ./runtime/websocket_python.md
    ./runtime/websocket_cpp.md
+   ./runtime/grpc_python.md
+   ./runtime/grpc_cpp.md
+
 
 .. toctree::
    :maxdepth: 1
-   :caption: Benchmark and Leadboard
+   :caption: Benchmark and Leaderboard
 
    ./benchmark/benchmark_onnx.md
    ./benchmark/benchmark_onnx_cpp.md
    ./benchmark/benchmark_libtorch.md
+   ./benchmark/benchmark_pipeline_cer.md
 
 
 .. toctree::

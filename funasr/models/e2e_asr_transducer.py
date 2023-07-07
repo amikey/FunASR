@@ -6,8 +6,9 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 from packaging.version import parse as V
-from typeguard import check_argument_types
-
+from funasr.losses.label_smoothing_loss import (
+    LabelSmoothingLoss,  # noqa: H301
+)
 from funasr.models.frontend.abs_frontend import AbsFrontend
 from funasr.models.specaug.abs_specaug import AbsSpecAug
 from funasr.models.decoder.rnnt_decoder import RNNTDecoder
@@ -15,9 +16,11 @@ from funasr.models.decoder.abs_decoder import AbsDecoder as AbsAttDecoder
 from funasr.models.encoder.abs_encoder import AbsEncoder
 from funasr.models.joint_net.joint_network import JointNetwork
 from funasr.modules.nets_utils import get_transducer_task_io
+from funasr.modules.nets_utils import th_accuracy
+from funasr.modules.add_sos_eos import add_sos_eos
 from funasr.layers.abs_normalize import AbsNormalize
 from funasr.torch_utils.device_funcs import force_gatherable
-from funasr.train.abs_espnet_model import AbsESPnetModel
+from funasr.models.base_model import FunASRModel
 
 if V(torch.__version__) >= V("1.6.0"):
     from torch.cuda.amp import autocast
@@ -28,7 +31,7 @@ else:
         yield
 
 
-class TransducerModel(AbsESPnetModel):
+class TransducerModel(FunASRModel):
     """ESPnet2ASRTransducerModel module definition.
 
     Args:
@@ -82,8 +85,6 @@ class TransducerModel(AbsESPnetModel):
         """Construct an ESPnetASRTransducerModel object."""
         super().__init__()
 
-        assert check_argument_types()
-
         # The following labels ID are reserved: 0 (blank) and vocab_size - 1 (sos/eos)
         self.blank_id = 0
         self.vocab_size = vocab_size
@@ -108,7 +109,7 @@ class TransducerModel(AbsESPnetModel):
         self.use_auxiliary_lm_loss = auxiliary_lm_loss_weight > 0
 
         if self.use_auxiliary_ctc:
-            self.ctc_lin = torch.nn.Linear(encoder.output_size, vocab_size)
+            self.ctc_lin = torch.nn.Linear(encoder.output_size(), vocab_size)
             self.ctc_dropout_rate = auxiliary_ctc_dropout_rate
 
         if self.use_auxiliary_lm_loss:
@@ -162,7 +163,9 @@ class TransducerModel(AbsESPnetModel):
 
         # 1. Encoder
         encoder_out, encoder_out_lens = self.encode(speech, speech_lengths)
-
+        if hasattr(self.encoder, 'overlap_chunk_cls') and self.encoder.overlap_chunk_cls is not None:
+            encoder_out, encoder_out_lens = self.encoder.overlap_chunk_cls.remove_chunk(encoder_out, encoder_out_lens,
+                                                                                        chunk_outs=None)
         # 2. Transducer-related I/O preparation
         decoder_in, target, t_len, u_len = get_transducer_task_io(
             text,
@@ -350,11 +353,6 @@ class TransducerModel(AbsESPnetModel):
         """
         if self.criterion_transducer is None:
             try:
-                # from warprnnt_pytorch import RNNTLoss
-	        # self.criterion_transducer = RNNTLoss(
-                    # reduction="mean",
-                    # fastemit_lambda=self.fastemit_lambda,
-                # )
                 from warp_rnnt import rnnt_loss as RNNTLoss
                 self.criterion_transducer = RNNTLoss
 
@@ -365,12 +363,6 @@ class TransducerModel(AbsESPnetModel):
                 )
                 exit(1)
 
-        # loss_transducer = self.criterion_transducer(
-        #     joint_out,
-        #     target,
-        #     t_len,
-        #     u_len,
-        # )
         log_probs = torch.log_softmax(joint_out, dim=-1)
 
         loss_transducer = self.criterion_transducer(
@@ -483,7 +475,7 @@ class TransducerModel(AbsESPnetModel):
 
         return loss_lm
 
-class UnifiedTransducerModel(AbsESPnetModel):
+class UnifiedTransducerModel(FunASRModel):
     """ESPnet2ASRTransducerModel module definition.
     Args:
         vocab_size: Size of complete vocabulary (w/ EOS and blank included).
@@ -540,8 +532,6 @@ class UnifiedTransducerModel(AbsESPnetModel):
         """Construct an ESPnetASRTransducerModel object."""
         super().__init__()
 
-        assert check_argument_types()
-
         # The following labels ID are reserved: 0 (blank) and vocab_size - 1 (sos/eos)
         self.blank_id = 0
 
@@ -577,7 +567,7 @@ class UnifiedTransducerModel(AbsESPnetModel):
         self.use_auxiliary_lm_loss = auxiliary_lm_loss_weight > 0
 
         if self.use_auxiliary_ctc:
-            self.ctc_lin = torch.nn.Linear(encoder.output_size, vocab_size)
+            self.ctc_lin = torch.nn.Linear(encoder.output_size(), vocab_size)
             self.ctc_dropout_rate = auxiliary_ctc_dropout_rate
 
         if self.use_auxiliary_att:
@@ -636,7 +626,6 @@ class UnifiedTransducerModel(AbsESPnetModel):
 
         batch_size = speech.shape[0]
         text = text[:, : text_lengths.max()]
-        #print(speech.shape)
         # 1. Encoder
         encoder_out, encoder_out_chunk, encoder_out_lens = self.encode(speech, speech_lengths)
 
@@ -707,7 +696,7 @@ class UnifiedTransducerModel(AbsESPnetModel):
             loss_lm = self._calc_lm_loss(decoder_out, target)
 
         loss_trans = loss_trans_utt + loss_trans_chunk
-        loss_ctc = loss_ctc + loss_ctc_chunk 
+        loss_ctc = loss_ctc + loss_ctc_chunk
         loss_ctc = loss_att + loss_att_chunk
 
         loss = (
@@ -853,11 +842,6 @@ class UnifiedTransducerModel(AbsESPnetModel):
         """
         if self.criterion_transducer is None:
             try:
-                # from warprnnt_pytorch import RNNTLoss
-            # self.criterion_transducer = RNNTLoss(
-                    # reduction="mean",
-                    # fastemit_lambda=self.fastemit_lambda,
-                # )
                 from warp_rnnt import rnnt_loss as RNNTLoss
                 self.criterion_transducer = RNNTLoss
 
@@ -868,12 +852,6 @@ class UnifiedTransducerModel(AbsESPnetModel):
                 )
                 exit(1)
 
-        # loss_transducer = self.criterion_transducer(
-        #     joint_out,
-        #     target,
-        #     t_len,
-        #     u_len,
-        # )
         log_probs = torch.log_softmax(joint_out, dim=-1)
 
         loss_transducer = self.criterion_transducer(

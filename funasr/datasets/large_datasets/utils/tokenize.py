@@ -46,17 +46,25 @@ def tokenize(data,
     text = data["text"]
     token = []
     vad = -2
-
     if bpe_tokenizer is not None:
-        text = bpe_tokenizer.text2tokens("".join(text))
-
+        text = bpe_tokenizer.text2tokens(" ".join(text))
     if seg_dict is not None:
         assert isinstance(seg_dict, dict)
         text = seg_tokenize(text, seg_dict)
 
     length = len(text)
     if 'hw_tag' in data:
-        hotword_indxs = sample_hotword(length, **hw_config)
+        if hw_config['pre_hwlist'] is not None and hw_config['pre_prob'] > 0:
+            # enable preset hotword detect in sampling
+            pre_index = None
+            for hw in hw_config['pre_hwlist']:
+                hw = " ".join(seg_tokenize(hw, seg_dict))
+                _find = " ".join(text).find(hw)
+                if _find != -1:
+                    # _find = text[:_find].count(" ")  # bpe sometimes
+                    pre_index = [_find, _find + max(hw.count(" "), 1)]
+                    break
+        hotword_indxs = sample_hotword(length, **hw_config, pre_index=pre_index)
         data['hotword_indxs'] = hotword_indxs
         del data['hw_tag']
     for i in range(length):

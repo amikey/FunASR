@@ -26,7 +26,6 @@ import numpy as np
 import torch
 import torch.nn
 import torch.optim
-from typeguard import check_argument_types
 
 from funasr.iterators.abs_iter_factory import AbsIterFactory
 from funasr.main_funcs.average_nbest_models import average_nbest_models
@@ -39,11 +38,12 @@ from funasr.torch_utils.add_gradient_noise import add_gradient_noise
 from funasr.torch_utils.device_funcs import to_device
 from funasr.torch_utils.recursive_op import recursive_average
 from funasr.torch_utils.set_all_random_seed import set_all_random_seed
-from funasr.train.abs_espnet_model import AbsESPnetModel
+from funasr.models.base_model import FunASRModel
 from funasr.train.distributed_utils import DistributedOption
 from funasr.train.reporter import Reporter
 from funasr.train.reporter import SubReporter
 from funasr.utils.build_dataclass import build_dataclass
+from funasr.utils.kwargs2args import kwargs2args
 
 if torch.distributed.is_available():
     from torch.distributed import ReduceOp
@@ -126,7 +126,6 @@ class Trainer:
     @classmethod
     def build_options(cls, args: argparse.Namespace) -> TrainerOptions:
         """Build options consumed by train(), eval()"""
-        assert check_argument_types()
         return build_dataclass(TrainerOptions, args)
 
     @classmethod
@@ -143,11 +142,23 @@ class Trainer:
         schedulers: Sequence[Optional[AbsScheduler]],
         scaler: Optional[GradScaler],
         ngpu: int = 0,
+        oss_bucket=None,
     ):
-        states = torch.load(
-            checkpoint,
-            map_location=f"cuda:{torch.cuda.current_device()}" if ngpu > 0 else "cpu",
-        )
+        if oss_bucket is None:
+            if os.path.exists(checkpoint):
+                states = torch.load(
+                    checkpoint,
+                    map_location=f"cuda:{torch.cuda.current_device()}" if ngpu > 0 else "cpu",
+                )
+            
+            else:
+                return 0
+        else:
+            if oss_bucket.object_exists(checkpoint):
+                buffer = BytesIO(oss_bucket.get_object(checkpoint).read())
+                states = torch.load(buffer, map_location=f"cuda:{torch.cuda.current_device()}" if ngpu > 0 else "cpu",)
+            else:
+                return 0
         model.load_state_dict(states["model"])
         reporter.load_state_dict(states["reporter"])
         for optimizer, state in zip(optimizers, states["optimizers"]):
@@ -166,7 +177,7 @@ class Trainer:
     @classmethod
     def run(
         cls,
-        model: AbsESPnetModel,
+        model: FunASRModel,
         optimizers: Sequence[torch.optim.Optimizer],
         schedulers: Sequence[Optional[AbsScheduler]],
         train_iter_factory: AbsIterFactory,
@@ -175,7 +186,6 @@ class Trainer:
         distributed_option: DistributedOption,
     ) -> None:
         """Perform training. This method performs the main process of training."""
-        assert check_argument_types()
         # NOTE(kamo): Don't check the type more strictly as far trainer_options
         assert is_dataclass(trainer_options), type(trainer_options)
         assert len(optimizers) == len(schedulers), (len(optimizers), len(schedulers))
@@ -206,15 +216,16 @@ class Trainer:
         else:
             scaler = None
 
-        if trainer_options.resume and (output_dir / "checkpoint.pb").exists():
+        if trainer_options.resume:
             cls.resume(
-                checkpoint=output_dir / "checkpoint.pb",
+                checkpoint=os.path.join(trainer_options.output_dir, "checkpoint.pb") if trainer_options.use_pai else output_dir / "checkpoint.pb",
                 model=model,
                 optimizers=optimizers,
                 schedulers=schedulers,
                 reporter=reporter,
                 scaler=scaler,
                 ngpu=trainer_options.ngpu,
+                oss_bucket=trainer_options.oss_bucket if trainer_options.use_pai else None,
             )
 
         start_epoch = reporter.get_epoch() + 1
@@ -537,7 +548,6 @@ class Trainer:
         options: TrainerOptions,
         distributed_option: DistributedOption,
     ) -> Tuple[bool, bool]:
-        assert check_argument_types()
 
         grad_noise = options.grad_noise
         accum_grad = options.accum_grad
@@ -606,6 +616,24 @@ class Trainer:
             if no_forward_run:
                 all_steps_are_invalid = False
                 continue
+
+            if iiter == 1 and summary_writer is not None:
+                try:
+                    args = kwargs2args(model.forward, batch)
+                except (ValueError, TypeError):
+                    logging.warning(
+                        "inpect.signature() is failed for the model. "
+                        "The graph can't be added for tensorboard."
+                    )
+                else:
+                    try:
+                        summary_writer.add_graph(model, args, use_strict_trace=False)
+                    except Exception:
+                        logging.warning(
+                            "summary_writer.add_graph() is failed for the model. "
+                            "The graph can't be added for tensorboard."
+                        )
+                    del args
 
             with autocast(scaler is not None):
                 with reporter.measure_time("forward_time"):
@@ -813,7 +841,6 @@ class Trainer:
         options: TrainerOptions,
         distributed_option: DistributedOption,
     ) -> None:
-        assert check_argument_types()
         ngpu = options.ngpu
         no_forward_run = options.no_forward_run
         distributed = distributed_option.distributed

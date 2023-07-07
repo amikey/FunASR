@@ -1,20 +1,22 @@
+import logging
 import os
 import random
-import numpy
 from functools import partial
 
 import torch
-import torchaudio
 import torch.distributed as dist
+import torchaudio
+import numpy as np
+import soundfile
 from kaldiio import ReadHelper
 from torch.utils.data import IterableDataset
 
 from funasr.datasets.large_datasets.datapipes.batch import MaxTokenBucketizerIterDataPipe
 from funasr.datasets.large_datasets.datapipes.filter import FilterIterDataPipe
 from funasr.datasets.large_datasets.datapipes.map import MapperIterDataPipe
+from funasr.datasets.large_datasets.utils.clipping import clipping
 from funasr.datasets.large_datasets.utils.filter import filter
 from funasr.datasets.large_datasets.utils.padding import padding
-from funasr.datasets.large_datasets.utils.clipping import clipping
 from funasr.datasets.large_datasets.utils.tokenize import tokenize
 
 
@@ -28,7 +30,8 @@ def read_lists(list_file):
 
 
 class AudioDataset(IterableDataset):
-    def __init__(self, scp_lists, data_names, data_types, frontend_conf=None, shuffle=True, mode="train"):
+    def __init__(self, scp_lists, data_names, data_types, frontend_conf=None, shuffle=True, speed_perturb=None,
+                 mode="train"):
         self.scp_lists = scp_lists
         self.data_names = data_names
         self.data_types = data_types
@@ -40,6 +43,9 @@ class AudioDataset(IterableDataset):
         self.world_size = 1
         self.worker_id = 0
         self.num_workers = 1
+        self.speed_perturb = speed_perturb
+        if self.speed_perturb is not None:
+            logging.info("Using speed_perturb: {}".format(speed_perturb))
 
     def set_epoch(self, epoch):
         self.epoch = epoch
@@ -119,14 +125,27 @@ class AudioDataset(IterableDataset):
                             sample_dict["key"] = key
                     elif data_type == "sound":
                         key, path = item.strip().split()
-                        waveform, sampling_rate = torchaudio.load(path)
+                        try:
+                            waveform, sampling_rate = torchaudio.load(path)
+                        except:
+                            waveform, sampling_rate = soundfile.read(path, dtype='float32')
+                            if waveform.ndim == 2:
+                                waveform = waveform[:, 0]
+                            waveform = np.expand_dims(waveform, axis=0)
+                            waveform = torch.tensor(waveform)
                         if self.frontend_conf is not None:
                             if sampling_rate != self.frontend_conf["fs"]:
                                 waveform = torchaudio.transforms.Resample(orig_freq=sampling_rate,
                                                                           new_freq=self.frontend_conf["fs"])(waveform)
-                                sampling_rate = self.frontend_conf["fs"] 
+                                sampling_rate = self.frontend_conf["fs"]
                         waveform = waveform.numpy()
                         mat = waveform[0]
+                        if self.speed_perturb is not None:
+                            speed = random.choice(self.speed_perturb)
+                            if speed != 1.0:
+                                mat, _ = torchaudio.sox_effects.apply_effects_tensor(
+                                    torch.tensor(mat).view(1, -1), sampling_rate, [['speed', str(speed)], ['rate', str(sampling_rate)]])
+                                mat = mat.view(-1).numpy()
                         sample_dict[data_name] = mat
                         sample_dict["sampling_rate"] = sampling_rate
                         if data_name == "speech":
@@ -138,6 +157,12 @@ class AudioDataset(IterableDataset):
                         if "key" not in sample_dict:
                             sample_dict["key"] = segs[0]
                         sample_dict['hw_tag'] = 1
+                    elif data_type == "text_nospace":
+                        text = item
+                        segs = text.strip().split(maxsplit=1)
+                        sample_dict[data_name] = [x for x in segs[1]]
+                        if "key" not in sample_dict:
+                            sample_dict["key"] = segs[0]
                     else:
                         text = item
                         segs = text.strip().split()
@@ -290,6 +315,7 @@ def Dataset(data_list_file,
             bpe_tokenizer,
             conf,
             frontend_conf,
+            speed_perturb=None,
             mode="train",
             batch_mode="padding"):
     scp_lists = read_lists(data_list_file)
@@ -298,14 +324,7 @@ def Dataset(data_list_file,
     data_types = conf.get("data_types", "kaldi_ark,text")
 
     pre_hwfile = conf.get("pre_hwlist", None)
-    pre_prob = conf.get("pre_prob", 0)  # unused yet
-
-    hw_config = {"sample_rate": conf.get("sample_rate", 0.6),
-                 "double_rate": conf.get("double_rate", 0.1),
-                 "hotword_min_length": conf.get("hotword_min_length", 2),
-                 "hotword_max_length": conf.get("hotword_max_length", 8),
-                 "pre_prob": conf.get("pre_prob", 0.0)}
-
+    # pre_prob = conf.get("pre_prob", 0)  # unused yet
     if pre_hwfile is not None:
         pre_hwlist = []
         with open(pre_hwfile, 'r') as fin:
@@ -314,11 +333,21 @@ def Dataset(data_list_file,
     else:
         pre_hwlist = None
 
+    hw_config = {"sample_rate": conf.get("sample_rate", 0.6),
+                 "double_rate": conf.get("double_rate", 0.1),
+                 "hotword_min_length": conf.get("hotword_min_length", 2),
+                 "hotword_max_length": conf.get("hotword_max_length", 8),
+                 "pre_prob": conf.get("pre_prob", 0.0),
+                 "pre_hwlist": pre_hwlist}
+
+    
+
     dataset = AudioDataset(scp_lists, 
                            data_names, 
                            data_types, 
                            frontend_conf=frontend_conf, 
-                           shuffle=shuffle, 
+                           shuffle=shuffle,
+                           speed_perturb=speed_perturb,
                            mode=mode, 
                            )
 

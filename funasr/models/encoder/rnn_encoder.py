@@ -1,10 +1,10 @@
+
 from typing import Optional
 from typing import Sequence
 from typing import Tuple
 
 import numpy as np
 import torch
-from typeguard import check_argument_types
 
 from funasr.modules.nets_utils import make_pad_mask
 from funasr.modules.rnn.encoders import RNN
@@ -14,7 +14,6 @@ from funasr.models.encoder.abs_encoder import AbsEncoder
 
 class RNNEncoder(AbsEncoder):
     """RNNEncoder class.
-
     Args:
         input_size: The number of expected features in the input
         output_size: The number of output features
@@ -23,7 +22,6 @@ class RNNEncoder(AbsEncoder):
         use_projection: Use projection layer or not
         num_layers: Number of recurrent layers
         dropout: dropout probability
-
     """
 
     def __init__(
@@ -38,7 +36,6 @@ class RNNEncoder(AbsEncoder):
         dropout: float = 0.0,
         subsample: Optional[Sequence[int]] = (2, 2, 1, 1),
     ):
-        assert check_argument_types()
         super().__init__()
         self._output_size = output_size
         self.rnn_type = rnn_type
@@ -49,12 +46,12 @@ class RNNEncoder(AbsEncoder):
             raise ValueError(f"Not supported rnn_type={rnn_type}")
 
         if subsample is None:
-            subsample = np.ones(num_layers + 1, dtype=np.int)
+            subsample = np.ones(num_layers + 1, dtype=np.int32)
         else:
             subsample = subsample[:num_layers]
             # Append 1 at the beginning because the second or later is used
             subsample = np.pad(
-                np.array(subsample, dtype=np.int),
+                np.array(subsample, dtype=np.int32),
                 [1, num_layers - len(subsample)],
                 mode="constant",
                 constant_values=1,

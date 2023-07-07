@@ -13,8 +13,6 @@ from typing import Union
 import numpy as np
 import torch
 import yaml
-from typeguard import check_argument_types
-from typeguard import check_return_type
 
 from funasr.datasets.collate_fn import CommonCollateFn
 from funasr.datasets.preprocessor import CommonPreprocessor
@@ -38,15 +36,18 @@ from funasr.models.decoder.transformer_decoder import (
 from funasr.models.decoder.transformer_decoder import ParaformerDecoderSAN
 from funasr.models.decoder.transformer_decoder import TransformerDecoder
 from funasr.models.decoder.contextual_decoder import ContextualParaformerDecoder
+from funasr.models.decoder.transformer_decoder import SAAsrTransformerDecoder
+from funasr.models.e2e_asr import ASRModel
 from funasr.models.decoder.rnnt_decoder import RNNTDecoder
 from funasr.models.joint_net.joint_network import JointNetwork
-from funasr.models.e2e_asr import ESPnetASRModel
 from funasr.models.e2e_asr_paraformer import Paraformer, ParaformerOnline, ParaformerBert, BiCifParaformer, ContextualParaformer
 from funasr.models.e2e_asr_contextual_paraformer import NeatContextualParaformer
 from funasr.models.e2e_tp import TimestampPredictor
 from funasr.models.e2e_asr_mfcca import MFCCA
+from funasr.models.e2e_sa_asr import SAASRModel
 from funasr.models.e2e_uni_asr import UniASR
 from funasr.models.e2e_asr_transducer import TransducerModel, UnifiedTransducerModel
+from funasr.models.e2e_asr_bat import BATModel
 from funasr.models.encoder.abs_encoder import AbsEncoder
 from funasr.models.encoder.conformer_encoder import ConformerEncoder, ConformerChunkEncoder
 from funasr.models.encoder.data2vec_encoder import Data2VecEncoder
@@ -54,6 +55,7 @@ from funasr.models.encoder.rnn_encoder import RNNEncoder
 from funasr.models.encoder.sanm_encoder import SANMEncoder, SANMEncoderChunkOpt
 from funasr.models.encoder.transformer_encoder import TransformerEncoder
 from funasr.models.encoder.mfcca_encoder import MFCCAEncoder
+from funasr.models.encoder.resnet34_encoder import ResNet34Diar
 from funasr.models.frontend.abs_frontend import AbsFrontend
 from funasr.models.frontend.default import DefaultFrontend
 from funasr.models.frontend.default import MultiChannelFrontend
@@ -65,7 +67,7 @@ from funasr.models.postencoder.abs_postencoder import AbsPostEncoder
 from funasr.models.postencoder.hugging_face_transformers_postencoder import (
     HuggingFaceTransformersPostEncoder,  # noqa: H301
 )
-from funasr.models.predictor.cif import CifPredictor, CifPredictorV2, CifPredictorV3
+from funasr.models.predictor.cif import CifPredictor, CifPredictorV2, CifPredictorV3, BATPredictor
 from funasr.models.preencoder.abs_preencoder import AbsPreEncoder
 from funasr.models.preencoder.linear import LinearProjection
 from funasr.models.preencoder.sinc import LightweightSincConvs
@@ -76,7 +78,7 @@ from funasr.modules.subsampling import Conv1dSubsampling
 from funasr.tasks.abs_task import AbsTask
 from funasr.text.phoneme_tokenizer import g2p_choices
 from funasr.torch_utils.initialize import initialize
-from funasr.train.abs_espnet_model import AbsESPnetModel
+from funasr.models.base_model import FunASRModel
 from funasr.train.class_choices import ClassChoices
 from funasr.train.trainer import Trainer
 from funasr.utils.get_default_kwargs import get_default_kwargs
@@ -122,7 +124,7 @@ normalize_choices = ClassChoices(
 model_choices = ClassChoices(
     "model",
     classes=dict(
-        asr=ESPnetASRModel,
+        asr=ASRModel,
         uniasr=UniASR,
         paraformer=Paraformer,
         paraformer_online=ParaformerOnline,
@@ -132,8 +134,12 @@ model_choices = ClassChoices(
         neatcontextual_paraformer=NeatContextualParaformer,
         mfcca=MFCCA,
         timestamp_prediction=TimestampPredictor,
+        rnnt=TransducerModel,
+        rnnt_unified=UnifiedTransducerModel,
+        bat=BATModel,
+        sa_asr=SAASRModel,
     ),
-    type_check=AbsESPnetModel,
+    type_check=FunASRModel,
     default="asr",
 )
 preencoder_choices = ClassChoices(
@@ -173,6 +179,27 @@ encoder_choices2 = ClassChoices(
     type_check=AbsEncoder,
     default="rnn",
 )
+asr_encoder_choices = ClassChoices(
+    "asr_encoder",
+    classes=dict(
+        conformer=ConformerEncoder,
+        transformer=TransformerEncoder,
+        rnn=RNNEncoder,
+        sanm=SANMEncoder,
+        sanm_chunk_opt=SANMEncoderChunkOpt,
+        data2vec_encoder=Data2VecEncoder,
+        mfcca_enc=MFCCAEncoder,
+    ),
+    type_check=AbsEncoder,
+    default="rnn",
+)
+spk_encoder_choices = ClassChoices(
+    "spk_encoder",
+    classes=dict(
+        resnet34_diar=ResNet34Diar,
+    ),
+    default="resnet34_diar",
+)
 postencoder_choices = ClassChoices(
     name="postencoder",
     classes=dict(
@@ -195,6 +222,7 @@ decoder_choices = ClassChoices(
         paraformer_decoder_sanm=ParaformerSANMDecoder,
         paraformer_decoder_san=ParaformerDecoderSAN,
         contextual_paraformer_decoder=ContextualParaformerDecoder,
+        sa_decoder=SAAsrTransformerDecoder,
     ),
     type_check=AbsDecoder,
     default="rnn",
@@ -224,6 +252,15 @@ rnnt_decoder_choices = ClassChoices(
     default="rnnt",
 )
 
+joint_network_choices = ClassChoices(
+    name="joint_network",
+    classes=dict(
+        joint_network=JointNetwork,
+    ),
+    default="joint_network",
+    optional=True,
+)
+
 predictor_choices = ClassChoices(
     name="predictor",
     classes=dict(
@@ -231,6 +268,7 @@ predictor_choices = ClassChoices(
         ctc_predictor=None,
         cif_predictor_v2=CifPredictorV2,
         cif_predictor_v3=CifPredictorV3,
+        bat_predictor=BATPredictor,
     ),
     type_check=None,
     default="cif_predictor",
@@ -280,6 +318,18 @@ class ASRTask(AbsTask):
         postencoder_choices,
         # --decoder and --decoder_conf
         decoder_choices,
+        # --predictor and --predictor_conf
+        predictor_choices,
+        # --encoder2 and --encoder2_conf
+        encoder_choices2,
+        # --decoder2 and --decoder2_conf
+        decoder_choices2,
+        # --predictor2 and --predictor2_conf
+        predictor_choices2,
+        # --stride_conv and --stride_conv_conf
+        stride_conv_choices,
+        # --rnnt_decoder and --rnnt_decoder_conf
+        rnnt_decoder_choices,
     ]
 
     # If you need to modify train() or eval() procedures, change Trainer class here
@@ -305,6 +355,12 @@ class ASRTask(AbsTask):
             type=str2bool,
             default=True,
             help="whether to split text using <space>",
+        )
+        group.add_argument(
+            "--max_spk_num",
+            type=int_or_none,
+            default=None,
+            help="A text mapping int-id to token",
         )
         group.add_argument(
             "--seg_dict_file",
@@ -339,12 +395,6 @@ class ASRTask(AbsTask):
             action=NestedDictAction,
             default=get_default_kwargs(CTC),
             help="The keyword arguments for CTC class.",
-        )
-        group.add_argument(
-            "--joint_net_conf",
-            action=NestedDictAction,
-            default=None,
-            help="The keyword arguments for joint network class.",
         )
 
         group = parser.add_argument_group(description="Preprocess related")
@@ -449,7 +499,6 @@ class ASRTask(AbsTask):
         [Collection[Tuple[str, Dict[str, np.ndarray]]]],
         Tuple[List[str], Dict[str, torch.Tensor]],
     ]:
-        assert check_argument_types()
         # NOTE(kamo): int value = 0 is reserved by CTC-blank symbol
         return CommonCollateFn(float_pad_value=0.0, int_pad_value=-1)
 
@@ -457,14 +506,13 @@ class ASRTask(AbsTask):
     def build_preprocess_fn(
             cls, args: argparse.Namespace, train: bool
     ) -> Optional[Callable[[str, Dict[str, np.array]], Dict[str, np.ndarray]]]:
-        assert check_argument_types()
         if args.use_preprocessor:
             retval = CommonPreprocessor(
                 train=train,
                 token_type=args.token_type,
                 token_list=args.token_list,
                 bpemodel=args.bpemodel,
-                non_linguistic_symbols=args.non_linguistic_symbols,
+                non_linguistic_symbols=args.non_linguistic_symbols if hasattr(args, "non_linguistic_symbols") else None,
                 text_cleaner=args.cleaner,
                 g2p_type=args.g2p,
                 split_with_space=args.split_with_space if hasattr(args, "split_with_space") else False,
@@ -490,7 +538,6 @@ class ASRTask(AbsTask):
             )
         else:
             retval = None
-        assert check_return_type(retval)
         return retval
 
     @classmethod
@@ -509,12 +556,10 @@ class ASRTask(AbsTask):
             cls, train: bool = True, inference: bool = False
     ) -> Tuple[str, ...]:
         retval = ()
-        assert check_return_type(retval)
         return retval
 
     @classmethod
     def build_model(cls, args: argparse.Namespace):
-        assert check_argument_types()
         if isinstance(args.token_list, str):
             with open(args.token_list, encoding="utf-8") as f:
                 token_list = [line.rstrip() for line in f]
@@ -640,7 +685,6 @@ class ASRTask(AbsTask):
         if args.init is not None:
             initialize(model, args.init)
 
-        assert check_return_type(model)
         return model
 
 
@@ -683,7 +727,6 @@ class ASRTaskUniASR(ASRTask):
 
     @classmethod
     def build_model(cls, args: argparse.Namespace):
-        assert check_argument_types()
         if isinstance(args.token_list, str):
             with open(args.token_list, encoding="utf-8") as f:
                 token_list = [line.rstrip() for line in f]
@@ -820,7 +863,6 @@ class ASRTaskUniASR(ASRTask):
         if args.init is not None:
             initialize(model, args.init)
 
-        assert check_return_type(model)
         return model
 
     # ~~~~~~~~~ The methods below are mainly used for inference ~~~~~~~~~
@@ -842,7 +884,6 @@ class ASRTaskUniASR(ASRTask):
             device: Device type, "cpu", "cuda", or "cuda:N".
 
         """
-        assert check_argument_types()
         if config_file is None:
             assert model_file is not None, (
                 "The argument 'model_file' must be provided "
@@ -858,9 +899,9 @@ class ASRTaskUniASR(ASRTask):
             args["cmvn_file"] = cmvn_file
         args = argparse.Namespace(**args)
         model = cls.build_model(args)
-        if not isinstance(model, AbsESPnetModel):
+        if not isinstance(model, FunASRModel):
             raise RuntimeError(
-                f"model must inherit {AbsESPnetModel.__name__}, but got {type(model)}"
+                f"model must inherit {FunASRModel.__name__}, but got {type(model)}"
             )
         model.to(device)
         model_dict = dict()
@@ -930,34 +971,33 @@ class ASRTaskParaformer(ASRTask):
     # If you need more than one optimizers, change this value
     num_optimizers: int = 1
 
-    # Add variable objects configurations
-    class_choices_list = [
-        # --frontend and --frontend_conf
-        frontend_choices,
-        # --specaug and --specaug_conf
-        specaug_choices,
-        # --normalize and --normalize_conf
-        normalize_choices,
-        # --model and --model_conf
-        model_choices,
-        # --preencoder and --preencoder_conf
-        preencoder_choices,
-        # --encoder and --encoder_conf
-        encoder_choices,
-        # --postencoder and --postencoder_conf
-        postencoder_choices,
-        # --decoder and --decoder_conf
-        decoder_choices,
-        # --predictor and --predictor_conf
-        predictor_choices,
-    ]
+    # # Add variable objects configurations
+    # class_choices_list = [
+    #     # --frontend and --frontend_conf
+    #     frontend_choices,
+    #     # --specaug and --specaug_conf
+    #     specaug_choices,
+    #     # --normalize and --normalize_conf
+    #     normalize_choices,
+    #     # --model and --model_conf
+    #     model_choices,
+    #     # --preencoder and --preencoder_conf
+    #     preencoder_choices,
+    #     # --encoder and --encoder_conf
+    #     encoder_choices,
+    #     # --postencoder and --postencoder_conf
+    #     postencoder_choices,
+    #     # --decoder and --decoder_conf
+    #     decoder_choices,
+    #     # --predictor and --predictor_conf
+    #     predictor_choices,
+    # ]
 
     # If you need to modify train() or eval() procedures, change Trainer class here
     trainer = Trainer
 
     @classmethod
     def build_model(cls, args: argparse.Namespace):
-        assert check_argument_types()
         if isinstance(args.token_list, str):
             with open(args.token_list, encoding="utf-8") as f:
                 token_list = [line.rstrip() for line in f]
@@ -1067,7 +1107,6 @@ class ASRTaskParaformer(ASRTask):
         if args.init is not None:
             initialize(model, args.init)
 
-        assert check_return_type(model)
         return model
 
     # ~~~~~~~~~ The methods below are mainly used for inference ~~~~~~~~~
@@ -1089,7 +1128,6 @@ class ASRTaskParaformer(ASRTask):
             device: Device type, "cpu", "cuda", or "cuda:N".
 
         """
-        assert check_argument_types()
         if config_file is None:
             assert model_file is not None, (
                 "The argument 'model_file' must be provided "
@@ -1105,9 +1143,9 @@ class ASRTaskParaformer(ASRTask):
             args["cmvn_file"] = cmvn_file
         args = argparse.Namespace(**args)
         model = cls.build_model(args)
-        if not isinstance(model, AbsESPnetModel):
+        if not isinstance(model, FunASRModel):
             raise RuntimeError(
-                f"model must inherit {AbsESPnetModel.__name__}, but got {type(model)}"
+                f"model must inherit {FunASRModel.__name__}, but got {type(model)}"
             )
         model.to(device)
         model_dict = dict()
@@ -1192,7 +1230,6 @@ class ASRTaskMFCCA(ASRTask):
 
     @classmethod
     def build_model(cls, args: argparse.Namespace):
-        assert check_argument_types()
         if isinstance(args.token_list, str):
             with open(args.token_list, encoding="utf-8") as f:
                 token_list = [line.rstrip() for line in f]
@@ -1290,7 +1327,6 @@ class ASRTaskMFCCA(ASRTask):
         if args.init is not None:
             initialize(model, args.init)
 
-        assert check_return_type(model)
         return model
 
 
@@ -1315,7 +1351,6 @@ class ASRTaskAligner(ASRTaskParaformer):
 
     @classmethod
     def build_model(cls, args: argparse.Namespace):
-        assert check_argument_types()
         if isinstance(args.token_list, str):
             with open(args.token_list, encoding="utf-8") as f:
                 token_list = [line.rstrip() for line in f]
@@ -1370,7 +1405,6 @@ class ASRTaskAligner(ASRTaskParaformer):
         if args.init is not None:
             initialize(model, args.init)
 
-        assert check_return_type(model)
         return model
 
     @classmethod
@@ -1381,254 +1415,22 @@ class ASRTaskAligner(ASRTaskParaformer):
         return retval
 
 
-class ASRTransducerTask(AbsTask):
+class ASRTransducerTask(ASRTask):
     """ASR Transducer Task definition."""
 
     num_optimizers: int = 1
 
     class_choices_list = [
+        model_choices,
         frontend_choices,
         specaug_choices,
         normalize_choices,
         encoder_choices,
         rnnt_decoder_choices,
+        joint_network_choices,
     ]
 
     trainer = Trainer
-
-    @classmethod
-    def add_task_arguments(cls, parser: argparse.ArgumentParser):
-        """Add Transducer task arguments.
-        Args:
-            cls: ASRTransducerTask object.
-            parser: Transducer arguments parser.
-        """
-        group = parser.add_argument_group(description="Task related.")
-
-        # required = parser.get_default("required")
-        # required += ["token_list"]
-
-        group.add_argument(
-            "--token_list",
-            type=str_or_none,
-            default=None,
-            help="Integer-string mapper for tokens.",
-        )
-        group.add_argument(
-            "--split_with_space",
-            type=str2bool,
-            default=True,
-            help="whether to split text using <space>",
-        )
-        group.add_argument(
-            "--input_size",
-            type=int_or_none,
-            default=None,
-            help="The number of dimensions for input features.",
-        )
-        group.add_argument(
-            "--init",
-            type=str_or_none,
-            default=None,
-            help="Type of model initialization to use.",
-        )
-        group.add_argument(
-            "--model_conf",
-            action=NestedDictAction,
-            default=get_default_kwargs(TransducerModel),
-            help="The keyword arguments for the model class.",
-        )
-        # group.add_argument(
-        #     "--encoder_conf",
-        #     action=NestedDictAction,
-        #     default={},
-        #     help="The keyword arguments for the encoder class.",
-        # )
-        group.add_argument(
-            "--joint_network_conf",
-            action=NestedDictAction,
-            default={},
-            help="The keyword arguments for the joint network class.",
-        )
-        group = parser.add_argument_group(description="Preprocess related.")
-        group.add_argument(
-            "--use_preprocessor",
-            type=str2bool,
-            default=True,
-            help="Whether to apply preprocessing to input data.",
-        )
-        group.add_argument(
-            "--token_type",
-            type=str,
-            default="bpe",
-            choices=["bpe", "char", "word", "phn"],
-            help="The type of tokens to use during tokenization.",
-        )
-        group.add_argument(
-            "--bpemodel",
-            type=str_or_none,
-            default=None,
-            help="The path of the sentencepiece model.",
-        )
-        parser.add_argument(
-            "--non_linguistic_symbols",
-            type=str_or_none,
-            help="The 'non_linguistic_symbols' file path.",
-        )
-        parser.add_argument(
-            "--cleaner",
-            type=str_or_none,
-            choices=[None, "tacotron", "jaconv", "vietnamese"],
-            default=None,
-            help="Text cleaner to use.",
-        )
-        parser.add_argument(
-            "--g2p",
-            type=str_or_none,
-            choices=g2p_choices,
-            default=None,
-            help="g2p method to use if --token_type=phn.",
-        )
-        parser.add_argument(
-            "--speech_volume_normalize",
-            type=float_or_none,
-            default=None,
-            help="Normalization value for maximum amplitude scaling.",
-        )
-        parser.add_argument(
-            "--rir_scp",
-            type=str_or_none,
-            default=None,
-            help="The RIR SCP file path.",
-        )
-        parser.add_argument(
-            "--rir_apply_prob",
-            type=float,
-            default=1.0,
-            help="The probability of the applied RIR convolution.",
-        )
-        parser.add_argument(
-            "--noise_scp",
-            type=str_or_none,
-            default=None,
-            help="The path of noise SCP file.",
-        )
-        parser.add_argument(
-            "--noise_apply_prob",
-            type=float,
-            default=1.0,
-            help="The probability of the applied noise addition.",
-        )
-        parser.add_argument(
-            "--noise_db_range",
-            type=str,
-            default="13_15",
-            help="The range of the noise decibel level.",
-        )
-        for class_choices in cls.class_choices_list:
-            # Append --<name> and --<name>_conf.
-            # e.g. --decoder and --decoder_conf
-            class_choices.add_arguments(group)
-
-    @classmethod
-    def build_collate_fn(
-        cls, args: argparse.Namespace, train: bool
-    ) -> Callable[
-        [Collection[Tuple[str, Dict[str, np.ndarray]]]],
-        Tuple[List[str], Dict[str, torch.Tensor]],
-    ]:
-        """Build collate function.
-        Args:
-            cls: ASRTransducerTask object.
-            args: Task arguments.
-            train: Training mode.
-        Return:
-            : Callable collate function.
-        """
-        assert check_argument_types()
-
-        return CommonCollateFn(float_pad_value=0.0, int_pad_value=-1)
-
-    @classmethod
-    def build_preprocess_fn(
-        cls, args: argparse.Namespace, train: bool
-    ) -> Optional[Callable[[str, Dict[str, np.array]], Dict[str, np.ndarray]]]:
-        """Build pre-processing function.
-        Args:
-            cls: ASRTransducerTask object.
-            args: Task arguments.
-            train: Training mode.
-        Return:
-            : Callable pre-processing function.
-        """
-        assert check_argument_types()
-
-        if args.use_preprocessor:
-            retval = CommonPreprocessor(
-                train=train,
-                token_type=args.token_type,
-                token_list=args.token_list,
-                bpemodel=args.bpemodel,
-                non_linguistic_symbols=args.non_linguistic_symbols,
-                text_cleaner=args.cleaner,
-                g2p_type=args.g2p,
-                split_with_space=args.split_with_space if hasattr(args, "split_with_space") else False,
-                rir_scp=args.rir_scp if hasattr(args, "rir_scp") else None,
-                rir_apply_prob=args.rir_apply_prob
-                if hasattr(args, "rir_apply_prob")
-                else 1.0,
-                noise_scp=args.noise_scp if hasattr(args, "noise_scp") else None,
-                noise_apply_prob=args.noise_apply_prob
-                if hasattr(args, "noise_apply_prob")
-                else 1.0,
-                noise_db_range=args.noise_db_range
-                if hasattr(args, "noise_db_range")
-                else "13_15",
-                speech_volume_normalize=args.speech_volume_normalize
-                if hasattr(args, "rir_scp")
-                else None,
-            )
-        else:
-            retval = None
-
-        assert check_return_type(retval)
-        return retval
-
-    @classmethod
-    def required_data_names(
-        cls, train: bool = True, inference: bool = False
-    ) -> Tuple[str, ...]:
-        """Required data depending on task mode.
-        Args:
-            cls: ASRTransducerTask object.
-            train: Training mode.
-            inference: Inference mode.
-        Return:
-            retval: Required task data.
-        """
-        if not inference:
-            retval = ("speech", "text")
-        else:
-            retval = ("speech",)
-
-        return retval
-
-    @classmethod
-    def optional_data_names(
-        cls, train: bool = True, inference: bool = False
-    ) -> Tuple[str, ...]:
-        """Optional data depending on task mode.
-        Args:
-            cls: ASRTransducerTask object.
-            train: Training mode.
-            inference: Inference mode.
-        Return:
-            retval: Optional task data.
-        """
-        retval = ()
-        assert check_return_type(retval)
-
-        return retval
 
     @classmethod
     def build_model(cls, args: argparse.Namespace) -> TransducerModel:
@@ -1638,6 +1440,134 @@ class ASRTransducerTask(AbsTask):
             args: Task arguments.
         Return:
             model: ASR Transducer model.
+        """
+
+        if isinstance(args.token_list, str):
+            with open(args.token_list, encoding="utf-8") as f:
+                token_list = [line.rstrip() for line in f]
+
+            # Overwriting token_list to keep it as "portable".
+            args.token_list = list(token_list)
+        elif isinstance(args.token_list, (tuple, list)):
+            token_list = list(args.token_list)
+        else:
+            raise RuntimeError("token_list must be str or list")
+        vocab_size = len(token_list)
+        logging.info(f"Vocabulary size: {vocab_size }")
+
+        # 1. frontend
+        if args.input_size is None:
+            # Extract features in the model
+            frontend_class = frontend_choices.get_class(args.frontend)
+            frontend = frontend_class(**args.frontend_conf)
+            input_size = frontend.output_size()
+        else:
+            # Give features from data-loader
+            frontend = None
+            input_size = args.input_size
+
+        # 2. Data augmentation for spectrogram
+        if args.specaug is not None:
+            specaug_class = specaug_choices.get_class(args.specaug)
+            specaug = specaug_class(**args.specaug_conf)
+        else:
+            specaug = None
+
+        # 3. Normalization layer
+        if args.normalize is not None:
+            normalize_class = normalize_choices.get_class(args.normalize)
+            normalize = normalize_class(**args.normalize_conf)
+        else:
+            normalize = None
+
+        # 4. Encoder
+        if getattr(args, "encoder", None) is not None:
+            encoder_class = encoder_choices.get_class(args.encoder)
+            encoder = encoder_class(input_size, **args.encoder_conf)
+        else:
+            encoder = Encoder(input_size, **args.encoder_conf)
+        encoder_output_size = encoder.output_size()
+
+        # 5. Decoder
+        rnnt_decoder_class = rnnt_decoder_choices.get_class(args.rnnt_decoder)
+        decoder = rnnt_decoder_class(
+            vocab_size,
+            **args.rnnt_decoder_conf,
+        )
+        decoder_output_size = decoder.output_size
+
+        if getattr(args, "decoder", None) is not None:
+            att_decoder_class = decoder_choices.get_class(args.decoder)
+
+            att_decoder = att_decoder_class(
+                vocab_size=vocab_size,
+                encoder_output_size=encoder_output_size,
+                **args.decoder_conf,
+            )
+        else:
+            att_decoder = None
+        # 6. Joint Network
+        joint_network = JointNetwork(
+            vocab_size,
+            encoder_output_size,
+            decoder_output_size,
+            **args.joint_network_conf,
+        )
+
+        # 7. Build model
+        try:
+            model_class = model_choices.get_class(args.model)
+        except AttributeError:
+            model_class = model_choices.get_class("rnnt_unified")
+
+        model = model_class(
+            vocab_size=vocab_size,
+            token_list=token_list,
+            frontend=frontend,
+            specaug=specaug,
+            normalize=normalize,
+            encoder=encoder,
+            decoder=decoder,
+            att_decoder=att_decoder,
+            joint_network=joint_network,
+            **args.model_conf,
+        )
+        # 8. Initialize model
+        if args.init is not None:
+            raise NotImplementedError(
+                "Currently not supported.",
+                "Initialization part will be reworked in a short future.",
+            )
+
+
+        return model
+
+class ASRBATTask(ASRTask):
+    """ASR Boundary Aware Transducer Task definition."""
+
+    num_optimizers: int = 1
+
+    class_choices_list = [
+        model_choices,
+        frontend_choices,
+        specaug_choices,
+        normalize_choices,
+        encoder_choices,
+        rnnt_decoder_choices,
+        joint_network_choices,
+        predictor_choices,
+    ]
+
+    trainer = Trainer
+
+    @classmethod
+    def build_model(cls, args: argparse.Namespace) -> BATModel:
+        """Required data depending on task mode.
+        Args:
+            cls: ASRBATTask object.
+            args: Task arguments.
+        Return:
+            model: ASR BAT model.
         """
         assert check_argument_types()
 
@@ -1696,7 +1626,7 @@ class ASRTransducerTask(AbsTask):
         decoder_output_size = decoder.output_size
 
         if getattr(args, "decoder", None) is not None:
-            att_decoder_class = decoder_choices.get_class(args.att_decoder)
+            att_decoder_class = decoder_choices.get_class(args.decoder)
 
             att_decoder = att_decoder_class(
                 vocab_size=vocab_size,
@@ -1713,36 +1643,28 @@ class ASRTransducerTask(AbsTask):
             **args.joint_network_conf,
         )
 
+        predictor_class = predictor_choices.get_class(args.predictor)
+        predictor = predictor_class(**args.predictor_conf)
+
         # 7. Build model
+        try:
+            model_class = model_choices.get_class(args.model)
+        except AttributeError:
+            model_class = model_choices.get_class("rnnt_unified")
 
-        if hasattr(encoder, 'unified_model_training') and encoder.unified_model_training:
-            model = UnifiedTransducerModel(
-                vocab_size=vocab_size,
-                token_list=token_list,
-                frontend=frontend,
-                specaug=specaug,
-                normalize=normalize,
-                encoder=encoder,
-                decoder=decoder,
-                att_decoder=att_decoder,
-                joint_network=joint_network,
-                **args.model_conf,
-            )
-
-        else:
-            model = TransducerModel(
-                vocab_size=vocab_size,
-                token_list=token_list,
-                frontend=frontend,
-                specaug=specaug,
-                normalize=normalize,
-                encoder=encoder,
-                decoder=decoder,
-                att_decoder=att_decoder,
-                joint_network=joint_network,
-                **args.model_conf,
-            )
-
+        model = model_class(
+            vocab_size=vocab_size,
+            token_list=token_list,
+            frontend=frontend,
+            specaug=specaug,
+            normalize=normalize,
+            encoder=encoder,
+            decoder=decoder,
+            att_decoder=att_decoder,
+            joint_network=joint_network,
+            predictor=predictor,
+            **args.model_conf,
+        )
         # 8. Initialize model
         if args.init is not None:
             raise NotImplementedError(
@@ -1751,5 +1673,122 @@ class ASRTransducerTask(AbsTask):
             )
 
         #assert check_return_type(model)
+
+        return model
+
+class ASRTaskSAASR(ASRTask):
+    # If you need more than one optimizers, change this value
+    num_optimizers: int = 1
+
+    # Add variable objects configurations
+    class_choices_list = [
+        # --frontend and --frontend_conf
+        frontend_choices,
+        # --specaug and --specaug_conf
+        specaug_choices,
+        # --normalize and --normalize_conf
+        normalize_choices,
+        # --model and --model_conf
+        model_choices,
+        # --preencoder and --preencoder_conf
+        preencoder_choices,
+        # --encoder and --encoder_conf
+        # --asr_encoder and --asr_encoder_conf
+        asr_encoder_choices,
+        # --spk_encoder and --spk_encoder_conf
+        spk_encoder_choices,
+        # --decoder and --decoder_conf
+        decoder_choices,
+    ]
+
+    # If you need to modify train() or eval() procedures, change Trainer class here
+    trainer = Trainer
+
+    @classmethod
+    def build_model(cls, args: argparse.Namespace):
+        if isinstance(args.token_list, str):
+            with open(args.token_list, encoding="utf-8") as f:
+                token_list = [line.rstrip() for line in f]
+
+            # Overwriting token_list to keep it as "portable".
+            args.token_list = list(token_list)
+        elif isinstance(args.token_list, (tuple, list)):
+            token_list = list(args.token_list)
+        else:
+            raise RuntimeError("token_list must be str or list")
+        vocab_size = len(token_list)
+        logging.info(f"Vocabulary size: {vocab_size}")
+
+        # 1. frontend
+        if args.input_size is None:
+            # Extract features in the model
+            frontend_class = frontend_choices.get_class(args.frontend)
+            if args.frontend == 'wav_frontend' or args.frontend == "multichannelfrontend":
+                frontend = frontend_class(cmvn_file=args.cmvn_file, **args.frontend_conf)
+            else:
+                frontend = frontend_class(**args.frontend_conf)
+            input_size = frontend.output_size()
+        else:
+            # Give features from data-loader
+            args.frontend = None
+            args.frontend_conf = {}
+            frontend = None
+            input_size = args.input_size
+
+        # 2. Data augmentation for spectrogram
+        if args.specaug is not None:
+            specaug_class = specaug_choices.get_class(args.specaug)
+            specaug = specaug_class(**args.specaug_conf)
+        else:
+            specaug = None
+
+        # 3. Normalization layer
+        if args.normalize is not None:
+            normalize_class = normalize_choices.get_class(args.normalize)
+            normalize = normalize_class(**args.normalize_conf)
+        else:
+            normalize = None
+
+        # 5. Encoder
+        asr_encoder_class = asr_encoder_choices.get_class(args.asr_encoder)
+        asr_encoder = asr_encoder_class(input_size=input_size, **args.asr_encoder_conf)
+        spk_encoder_class = spk_encoder_choices.get_class(args.spk_encoder)
+        spk_encoder = spk_encoder_class(input_size=input_size, **args.spk_encoder_conf)
+
+        # 7. Decoder
+        decoder_class = decoder_choices.get_class(args.decoder)
+        decoder = decoder_class(
+            vocab_size=vocab_size,
+            encoder_output_size=asr_encoder.output_size(),
+            **args.decoder_conf,
+        )
+
+        # 8. CTC
+        ctc = CTC(
+            odim=vocab_size, encoder_output_size=asr_encoder.output_size(), **args.ctc_conf
+        )
+
+        # import ipdb;ipdb.set_trace()
+        # 9. Build model
+        try:
+            model_class = model_choices.get_class(args.model)
+        except AttributeError:
+            model_class = model_choices.get_class("asr")
+        model = model_class(
+            vocab_size=vocab_size,
+            frontend=frontend,
+            specaug=specaug,
+            normalize=normalize,
+            asr_encoder=asr_encoder,
+            spk_encoder=spk_encoder,
+            decoder=decoder,
+            ctc=ctc,
+            token_list=token_list,
+            **args.model_conf,
+        )
+
+        # 10. Initialize
+        if args.init is not None:
+            initialize(model, args.init)
 
         return model

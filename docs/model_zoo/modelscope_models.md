@@ -1,7 +1,10 @@
 # Pretrained Models on ModelScope
 
 ## Model License
--  Apache License 2.0
+You are free to use, copy, modify, and share FunASR models under the conditions of this agreement. You should indicate the model source and author information when using, copying, modifying and sharing FunASR models. You should keep the relevant names of models in [FunASR software].. Full model license could see [license](https://github.com/alibaba-damo-academy/FunASR/blob/main/MODEL_LICENSE)
+
+## Model Usage
+Ref to [docs](https://alibaba-damo-academy.github.io/FunASR/en/modelscope_pipeline/quick_start.html)
 
 ## Model Zoo
 Here we provided several pretrained models on different datasets. The details of models and datasets can be found on [ModelScope](https://www.modelscope.cn/models?page=1&tasks=auto-speech-recognition).
@@ -12,7 +15,7 @@ Here we provided several pretrained models on different datasets. The details of
 |                                                                     Model Name                                                                     | Language |          Training Data           | Vocab Size | Parameter | Offline/Online | Notes                                                                                                                           |
 |:--------------------------------------------------------------------------------------------------------------------------------------------------:|:--------:|:--------------------------------:|:----------:|:---------:|:--------------:|:--------------------------------------------------------------------------------------------------------------------------------|
 |        [Paraformer-large](https://www.modelscope.cn/models/damo/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-pytorch/summary)        | CN & EN  | Alibaba Speech Data (60000hours) |    8404    |   220M    |    Offline     | Duration of input wav <= 20s                                                                                                    |
-| [Paraformer-large-long](https://www.modelscope.cn/models/damo/speech_paraformer-large-vad-punc_asr_nat-zh-cn-16k-common-vocab8404-pytorch/summary) | CN & EN  | Alibaba Speech Data (60000hours) |    8404    |   220M    |    Offline     | Which ould deal with arbitrary length input wav                                                                                 |
+| [Paraformer-large-long](https://www.modelscope.cn/models/damo/speech_paraformer-large-vad-punc_asr_nat-zh-cn-16k-common-vocab8404-pytorch/summary) | CN & EN  | Alibaba Speech Data (60000hours) |    8404    |   220M    |    Offline     | Which would deal with arbitrary length input wav                                                                                 |
 | [Paraformer-large-contextual](https://www.modelscope.cn/models/damo/speech_paraformer-large-contextual_asr_nat-zh-cn-16k-common-vocab8404/summary) | CN & EN  | Alibaba Speech Data (60000hours) |    8404    |   220M    |    Offline     | Which supports the hotword customization based on the incentive enhancement, and improves the recall and precision of hotwords. |
 |              [Paraformer](https://modelscope.cn/models/damo/speech_paraformer_asr_nat-zh-cn-16k-common-vocab8358-tensorflow1/summary)              | CN & EN  | Alibaba Speech Data (50000hours) |    8358    |    68M    |    Offline     | Duration of input wav <= 20s                                                                                                    |
 |           [Paraformer-online](https://www.modelscope.cn/models/damo/speech_paraformer_asr_nat-zh-cn-16k-common-vocab8404-online/summary)           | CN & EN  | Alibaba Speech Data (50000hours) |    8404    |    68M    |     Online     | Which could deal with streaming input                                                                                           |
@@ -45,7 +48,7 @@ Here we provided several pretrained models on different datasets. The details of
 |                [UniASR Burmese](https://modelscope.cn/models/damo/speech_UniASR_asr_2pass-my-16k-common-vocab696-pytorch/summary)                 |       MY        | Alibaba Speech Data (1000 hours)  |    696     |    95M    |     Online     | UniASR streaming offline unifying models                                                                                                    |
 |                [UniASR Hebrew](https://modelscope.cn/models/damo/speech_UniASR_asr_2pass-he-16k-common-vocab1085-pytorch/summary)                 |       HE        | Alibaba Speech Data (1000 hours)  |    1085    |    95M    |     Online     | UniASR streaming offline unifying models                                                                                                    |
 |              [UniASR Urdu](https://modelscope.cn/models/damo/speech_UniASR_asr_2pass-ur-16k-common-vocab877-pytorch/summary)                      |       UR        | Alibaba Speech Data (1000 hours)  |    877     |    95M    |     Online     | UniASR streaming offline unifying models                                                                                                    |
-
+|              [UniASR Turkish](https://modelscope.cn/models/damo/speech_UniASR_asr_2pass-tr-16k-common-vocab1582-pytorch/summary)                      |       TR        | Alibaba Speech Data (1000 hours)  |    1582     |    95M    |     Online     | UniASR streaming offline unifying models                                                                                                    |
 
 
 #### Conformer Models

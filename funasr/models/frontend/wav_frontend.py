@@ -6,7 +6,6 @@ import numpy as np
 import torch
 import torchaudio.compliance.kaldi as kaldi
 from torch.nn.utils.rnn import pad_sequence
-from typeguard import check_argument_types
 
 import funasr.models.frontend.eend_ola_feature as eend_ola_feature
 from funasr.models.frontend.abs_frontend import AbsFrontend
@@ -95,7 +94,6 @@ class WavFrontend(AbsFrontend):
             snip_edges: bool = True,
             upsacle_samples: bool = True,
     ):
-        assert check_argument_types()
         super().__init__()
         self.fs = fs
         self.window = window
@@ -227,7 +225,6 @@ class WavFrontendOnline(AbsFrontend):
             snip_edges: bool = True,
             upsacle_samples: bool = True,
     ):
-        assert check_argument_types()
         super().__init__()
         self.fs = fs
         self.window = window
@@ -395,8 +392,10 @@ class WavFrontendOnline(AbsFrontend):
         return feats_pad, feats_lens, lfr_splice_frame_idxs
 
     def forward(
-            self, input: torch.Tensor, input_lengths: torch.Tensor, is_final: bool = False
+        self, input: torch.Tensor, input_lengths: torch.Tensor, is_final: bool = False, reset: bool = False
     ) -> Tuple[torch.Tensor, torch.Tensor]:
+        if reset:
+            self.cache_reset()
         batch_size = input.shape[0]
         assert batch_size == 1, 'we support to extract feature online only when the batch size is equal to 1 now'
         waveforms, feats, feats_lengths = self.forward_fbank(input, input_lengths)  # input shape: B T D
@@ -464,7 +463,6 @@ class WavFrontendMel23(AbsFrontend):
             lfr_m: int = 1,
             lfr_n: int = 1,
     ):
-        assert check_argument_types()
         super().__init__()
         self.fs = fs
         self.frame_length = frame_length

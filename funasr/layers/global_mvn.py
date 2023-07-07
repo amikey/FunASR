@@ -4,7 +4,6 @@ from typing import Union
 
 import numpy as np
 import torch
-from typeguard import check_argument_types
 
 from funasr.modules.nets_utils import make_pad_mask
 from funasr.layers.abs_normalize import AbsNormalize
@@ -13,9 +12,7 @@ from funasr.layers.inversible_interface import InversibleInterface
 
 class GlobalMVN(AbsNormalize, InversibleInterface):
     """Apply global mean and variance normalization
-
     TODO(kamo): Make this class portable somehow
-
     Args:
         stats_file: npy file
         norm_means: Apply mean normalization
@@ -30,7 +27,6 @@ class GlobalMVN(AbsNormalize, InversibleInterface):
         norm_vars: bool = True,
         eps: float = 1.0e-20,
     ):
-        assert check_argument_types()
         super().__init__()
         self.norm_means = norm_means
         self.norm_vars = norm_vars
@@ -66,7 +62,6 @@ class GlobalMVN(AbsNormalize, InversibleInterface):
         self, x: torch.Tensor, ilens: torch.Tensor = None
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Forward function
-
         Args:
             x: (B, L, ...)
             ilens: (B,)

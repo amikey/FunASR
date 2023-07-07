@@ -9,12 +9,9 @@ from typing import Tuple
 
 import numpy as np
 import torch
-from typeguard import check_argument_types
-from typeguard import check_return_type
 
 from funasr.datasets.collate_fn import CommonCollateFn
 from funasr.datasets.preprocessor import PuncTrainTokenizerCommonPreprocessor
-from funasr.train.abs_model import AbsPunctuation
 from funasr.train.abs_model import PunctuationModel
 from funasr.models.target_delay_transformer import TargetDelayTransformer
 from funasr.models.vad_realtime_transformer import VadRealtimeTransformer
@@ -31,7 +28,6 @@ from funasr.utils.types import str_or_none
 punc_choices = ClassChoices(
     "punctuation",
     classes=dict(target_delay=TargetDelayTransformer, vad_realtime=VadRealtimeTransformer),
-    type_check=AbsPunctuation,
     default="target_delay",
 )
 
@@ -49,7 +45,6 @@ class PunctuationTask(AbsTask):
     @classmethod
     def add_task_arguments(cls, parser: argparse.ArgumentParser):
         # NOTE(kamo): Use '_' instead of '-' to avoid confusion
-        assert check_argument_types()
         group = parser.add_argument_group(description="Task related")
 
         # NOTE(kamo): add_arguments(..., required=True) can't be used
@@ -128,7 +123,6 @@ class PunctuationTask(AbsTask):
             # e.g. --encoder and --encoder_conf
             class_choices.add_arguments(group)
 
-        assert check_return_type(parser)
         return parser
 
     @classmethod
@@ -138,14 +132,12 @@ class PunctuationTask(AbsTask):
         [Collection[Tuple[str, Dict[str, np.ndarray]]]],
         Tuple[List[str], Dict[str, torch.Tensor]],
     ]:
-        assert check_argument_types()
         return CommonCollateFn(int_pad_value=0)
 
     @classmethod
     def build_preprocess_fn(
             cls, args: argparse.Namespace, train: bool
     ) -> Optional[Callable[[str, Dict[str, np.array]], Dict[str, np.ndarray]]]:
-        assert check_argument_types()
         token_types = [args.token_type, args.token_type]
         token_lists = [args.token_list, args.punc_list]
         bpemodels = [args.bpemodel, args.bpemodel]
@@ -163,7 +155,6 @@ class PunctuationTask(AbsTask):
             )
         else:
             retval = None
-        assert check_return_type(retval)
         return retval
 
     @classmethod
@@ -184,7 +175,6 @@ class PunctuationTask(AbsTask):
 
     @classmethod
     def build_model(cls, args: argparse.Namespace) -> PunctuationModel:
-        assert check_argument_types()
         if isinstance(args.token_list, str):
             with open(args.token_list, encoding="utf-8") as f:
                 token_list = [line.rstrip() for line in f]
@@ -225,5 +215,4 @@ class PunctuationTask(AbsTask):
         if args.init is not None:
             initialize(model, args.init)
 
-        assert check_return_type(model)
         return model

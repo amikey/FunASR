@@ -33,6 +33,7 @@ void Paraformer::InitAsr(const std::string &am_model, const std::string &am_cmvn
 
     try {
         m_session = std::make_unique<Ort::Session>(env_, am_model.c_str(), session_options);
+        LOG(INFO) << "Successfully load model from " << am_model;
     } catch (std::exception const &e) {
         LOG(ERROR) << "Error when load am onnx model: " << e.what();
         exit(0);
@@ -69,7 +70,11 @@ void Paraformer::Reset()
 
 vector<float> Paraformer::FbankKaldi(float sample_rate, const float* waves, int len) {
     knf::OnlineFbank fbank_(fbank_opts);
-    fbank_.AcceptWaveform(sample_rate, waves, len);
+    std::vector<float> buf(len);
+    for (int32_t i = 0; i != len; ++i) {
+        buf[i] = waves[i] * 32768;
+    }
+    fbank_.AcceptWaveform(sample_rate, buf.data(), buf.size());
     //fbank_->InputFinished();
     int32_t frames = fbank_.NumFramesReady();
     int32_t feature_dim = fbank_opts.mel_opts.num_bins;

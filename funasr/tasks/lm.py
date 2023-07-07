@@ -9,15 +9,13 @@ from typing import Tuple
 
 import numpy as np
 import torch
-from typeguard import check_argument_types
-from typeguard import check_return_type
 
 from funasr.datasets.collate_fn import CommonCollateFn
 from funasr.datasets.preprocessor import CommonPreprocessor
-from funasr.lm.abs_model import AbsLM
-from funasr.lm.abs_model import LanguageModel
-from funasr.lm.seq_rnn_lm import SequentialRNNLM
-from funasr.lm.transformer_lm import TransformerLM
+from funasr.train.abs_model import AbsLM
+from funasr.train.abs_model import LanguageModel
+from funasr.models.seq_rnn_lm import SequentialRNNLM
+from funasr.models.transformer_lm import TransformerLM
 from funasr.tasks.abs_task import AbsTask
 from funasr.text.phoneme_tokenizer import g2p_choices
 from funasr.torch_utils.initialize import initialize
@@ -52,7 +50,6 @@ class LMTask(AbsTask):
     @classmethod
     def add_task_arguments(cls, parser: argparse.ArgumentParser):
         # NOTE(kamo): Use '_' instead of '-' to avoid confusion
-        assert check_argument_types()
         group = parser.add_argument_group(description="Task related")
 
         # NOTE(kamo): add_arguments(..., required=True) can't be used
@@ -130,7 +127,6 @@ class LMTask(AbsTask):
         for class_choices in cls.class_choices_list:
             class_choices.add_arguments(group)
 
-        assert check_return_type(parser)
         return parser
 
     @classmethod
@@ -140,14 +136,12 @@ class LMTask(AbsTask):
         [Collection[Tuple[str, Dict[str, np.ndarray]]]],
         Tuple[List[str], Dict[str, torch.Tensor]],
     ]:
-        assert check_argument_types()
         return CommonCollateFn(int_pad_value=0)
 
     @classmethod
     def build_preprocess_fn(
             cls, args: argparse.Namespace, train: bool
     ) -> Optional[Callable[[str, Dict[str, np.array]], Dict[str, np.ndarray]]]:
-        assert check_argument_types()
         if args.use_preprocessor:
             retval = CommonPreprocessor(
                 train=train,
@@ -160,7 +154,6 @@ class LMTask(AbsTask):
             )
         else:
             retval = None
-        assert check_return_type(retval)
         return retval
 
     @classmethod
@@ -179,7 +172,6 @@ class LMTask(AbsTask):
 
     @classmethod
     def build_model(cls, args: argparse.Namespace) -> LanguageModel:
-        assert check_argument_types()
         if isinstance(args.token_list, str):
             with open(args.token_list, encoding="utf-8") as f:
                 token_list = [line.rstrip() for line in f]
@@ -206,6 +198,4 @@ class LMTask(AbsTask):
         # 3. Initialize
         if args.init is not None:
             initialize(model, args.init)
-
-        assert check_return_type(model)
         return model

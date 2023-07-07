@@ -7,8 +7,9 @@ https://arxiv.org/abs/2211.10243
 from modelscope.pipelines import pipeline
 from modelscope.utils.constant import Tasks
 
-# 初始化推理 pipeline
-# 当以原始音频作为输入时使用配置文件 sond.yaml，并设置 mode 为sond_demo
+# initialize the pipeline for inference
+# when using the raw waveform files to inference, please use the config file `sond.yaml`
+# and set mode to `sond_demo`
 inference_diar_pipline = pipeline(
     mode="sond_demo",
     num_workers=0,
@@ -16,10 +17,11 @@ inference_diar_pipline = pipeline(
     diar_model_config="sond.yaml",
     model='damo/speech_diarization_sond-zh-cn-alimeeting-16k-n16k4-pytorch',
     sv_model="damo/speech_xvector_sv-zh-cn-cnceleb-16k-spk3465-pytorch",
-    sv_model_revision="master",
+    sv_model_revision="v1.2.2",
 )
 
-# 以 audio_list 作为输入，其中第一个音频为待检测语音，后面的音频为不同说话人的声纹注册语音
+# use audio_list as the input, where the first one is the record to be detected
+# and the following files are enrollments for different speakers
 audio_list = [
     "https://isv-data.oss-cn-hangzhou.aliyuncs.com/ics/MaaS/ASR/test_data/speaker_diarization/record.wav",
     "https://isv-data.oss-cn-hangzhou.aliyuncs.com/ics/MaaS/ASR/test_data/speaker_diarization/spk1.wav",

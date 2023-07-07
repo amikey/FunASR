@@ -11,15 +11,21 @@ extern "C" {
 		return mm;
 	}
 
-	_FUNASRAPI FUNASR_HANDLE  FsmnVadInit(std::map<std::string, std::string>& model_path, int thread_num, FSMN_VAD_MODE mode)
+	_FUNASRAPI FUNASR_HANDLE  FsmnVadInit(std::map<std::string, std::string>& model_path, int thread_num)
 	{
-		funasr::VadModel* mm = funasr::CreateVadModel(model_path, thread_num, mode);
+		funasr::VadModel* mm = funasr::CreateVadModel(model_path, thread_num);
 		return mm;
 	}
 
-	_FUNASRAPI FUNASR_HANDLE  CTTransformerInit(std::map<std::string, std::string>& model_path, int thread_num)
+	_FUNASRAPI FUNASR_HANDLE  FsmnVadOnlineInit(FUNASR_HANDLE fsmnvad_handle)
 	{
-		funasr::PuncModel* mm = funasr::CreatePuncModel(model_path, thread_num);
+		funasr::VadModel* mm = funasr::CreateVadModel(fsmnvad_handle);
+		return mm;
+	}
+
+	_FUNASRAPI FUNASR_HANDLE  CTTransformerInit(std::map<std::string, std::string>& model_path, int thread_num, PUNC_TYPE type)
+	{
+		funasr::PuncModel* mm = funasr::CreatePuncModel(model_path, thread_num, type);
 		return mm;
 	}
 
@@ -45,6 +51,9 @@ extern "C" {
 		int flag = 0;
 		funasr::FUNASR_RECOG_RESULT* p_result = new funasr::FUNASR_RECOG_RESULT;
 		p_result->snippet_time = audio.GetTimeLen();
+		if(p_result->snippet_time == 0){
+            return p_result;
+        }
 		int n_step = 0;
 		int n_total = audio.GetQueueSize();
 		while (audio.Fetch(buff, len, flag) > 0) {
@@ -84,6 +93,9 @@ extern "C" {
 		int n_total = audio.GetQueueSize();
 		funasr::FUNASR_RECOG_RESULT* p_result = new funasr::FUNASR_RECOG_RESULT;
 		p_result->snippet_time = audio.GetTimeLen();
+		if(p_result->snippet_time == 0){
+            return p_result;
+        }
 		while (audio.Fetch(buff, len, flag) > 0) {
 			string msg = recog_obj->Forward(buff, len, flag);
 			p_result->msg += msg;
@@ -96,7 +108,7 @@ extern "C" {
 	}
 
 	// APIs for VAD Infer
-	_FUNASRAPI FUNASR_RESULT FsmnVadInferBuffer(FUNASR_HANDLE handle, const char* sz_buf, int n_len, FSMN_VAD_MODE mode, QM_CALLBACK fn_callback, int sampling_rate)
+	_FUNASRAPI FUNASR_RESULT FsmnVadInferBuffer(FUNASR_HANDLE handle, const char* sz_buf, int n_len, QM_CALLBACK fn_callback, bool input_finished, int sampling_rate)
 	{
 		funasr::VadModel* vad_obj = (funasr::VadModel*)handle;
 		if (!vad_obj)
@@ -108,15 +120,18 @@ extern "C" {
 
 		funasr::FUNASR_VAD_RESULT* p_result = new funasr::FUNASR_VAD_RESULT;
 		p_result->snippet_time = audio.GetTimeLen();
+		if(p_result->snippet_time == 0){
+            return p_result;
+        }
 		
 		vector<std::vector<int>> vad_segments;
-		audio.Split(vad_obj, vad_segments);
+		audio.Split(vad_obj, vad_segments, input_finished);
 		p_result->segments = new vector<std::vector<int>>(vad_segments);
 
 		return p_result;
 	}
 
-	_FUNASRAPI FUNASR_RESULT FsmnVadInfer(FUNASR_HANDLE handle, const char* sz_filename, FSMN_VAD_MODE mode, QM_CALLBACK fn_callback, int sampling_rate)
+	_FUNASRAPI FUNASR_RESULT FsmnVadInfer(FUNASR_HANDLE handle, const char* sz_filename, QM_CALLBACK fn_callback, int sampling_rate)
 	{
 		funasr::VadModel* vad_obj = (funasr::VadModel*)handle;
 		if (!vad_obj)
@@ -137,23 +152,40 @@ extern "C" {
 
 		funasr::FUNASR_VAD_RESULT* p_result = new funasr::FUNASR_VAD_RESULT;
 		p_result->snippet_time = audio.GetTimeLen();
+		if(p_result->snippet_time == 0){
+            return p_result;
+        }
 		
 		vector<std::vector<int>> vad_segments;
-		audio.Split(vad_obj, vad_segments);
+		audio.Split(vad_obj, vad_segments, true);
 		p_result->segments = new vector<std::vector<int>>(vad_segments);
 
 		return p_result;
 	}
 
 	// APIs for PUNC Infer
-	_FUNASRAPI const std::string CTTransformerInfer(FUNASR_HANDLE handle, const char* sz_sentence, FUNASR_MODE mode, QM_CALLBACK fn_callback)
+	_FUNASRAPI FUNASR_RESULT CTTransformerInfer(FUNASR_HANDLE handle, const char* sz_sentence, FUNASR_MODE mode, QM_CALLBACK fn_callback, PUNC_TYPE type, FUNASR_RESULT pre_result)
 	{
 		funasr::PuncModel* punc_obj = (funasr::PuncModel*)handle;
 		if (!punc_obj)
 			return nullptr;
+		
+		FUNASR_RESULT p_result = nullptr;
+		if (type==PUNC_OFFLINE){
+			p_result = (FUNASR_RESULT)new funasr::FUNASR_PUNC_RESULT;
+			((funasr::FUNASR_PUNC_RESULT*)p_result)->msg = punc_obj->AddPunc(sz_sentence);
+		}else if(type==PUNC_ONLINE){
+			if (!pre_result)
+				p_result = (FUNASR_RESULT)new funasr::FUNASR_PUNC_RESULT;
+			else
+				p_result = pre_result;
+			((funasr::FUNASR_PUNC_RESULT*)p_result)->msg = punc_obj->AddPunc(sz_sentence, ((funasr::FUNASR_PUNC_RESULT*)p_result)->arr_cache);
+		}else{
+			LOG(ERROR) << "Wrong PUNC_TYPE";
+			exit(-1);
+		}
 
-		string punc_res = punc_obj->AddPunc(sz_sentence);
-		return punc_res;
+		return p_result;
 	}
 
 	// APIs for Offline-stream Infer
@@ -166,6 +198,11 @@ extern "C" {
 		funasr::Audio audio(1);
 		if (!audio.LoadPcmwav(sz_buf, n_len, &sampling_rate))
 			return nullptr;
+		funasr::FUNASR_RECOG_RESULT* p_result = new funasr::FUNASR_RECOG_RESULT;
+		p_result->snippet_time = audio.GetTimeLen();
+		if(p_result->snippet_time == 0){
+            return p_result;
+        }
 		if(offline_stream->UseVad()){
 			audio.Split(offline_stream);
 		}
@@ -173,8 +210,7 @@ extern "C" {
 		float* buff;
 		int len;
 		int flag = 0;
-		funasr::FUNASR_RECOG_RESULT* p_result = new funasr::FUNASR_RECOG_RESULT;
-		p_result->snippet_time = audio.GetTimeLen();
+
 		int n_step = 0;
 		int n_total = audio.GetQueueSize();
 		while (audio.Fetch(buff, len, flag) > 0) {
@@ -210,6 +246,11 @@ extern "C" {
 			LOG(ERROR)<<"Wrong wav extension";
 			exit(-1);
 		}
+		funasr::FUNASR_RECOG_RESULT* p_result = new funasr::FUNASR_RECOG_RESULT;
+		p_result->snippet_time = audio.GetTimeLen();
+		if(p_result->snippet_time == 0){
+            return p_result;
+        }
 		if(offline_stream->UseVad()){
 			audio.Split(offline_stream);
 		}
@@ -219,8 +260,6 @@ extern "C" {
 		int flag = 0;
 		int n_step = 0;
 		int n_total = audio.GetQueueSize();
-		funasr::FUNASR_RECOG_RESULT* p_result = new funasr::FUNASR_RECOG_RESULT;
-		p_result->snippet_time = audio.GetTimeLen();
 		while (audio.Fetch(buff, len, flag) > 0) {
 			string msg = (offline_stream->asr_handle)->Forward(buff, len, flag);
 			p_result->msg+= msg;
@@ -271,6 +310,15 @@ extern "C" {
 		return p_result->msg.c_str();
 	}
 
+	_FUNASRAPI const char* CTTransformerGetResult(FUNASR_RESULT result,int n_index)
+	{
+		funasr::FUNASR_PUNC_RESULT * p_result = (funasr::FUNASR_PUNC_RESULT*)result;
+		if(!p_result)
+			return nullptr;
+
+		return p_result->msg.c_str();
+	}
+
 	_FUNASRAPI vector<std::vector<int>>* FsmnVadGetResult(FUNASR_RESULT result,int n_index)
 	{
 		funasr::FUNASR_VAD_RESULT * p_result = (funasr::FUNASR_VAD_RESULT*)result;
@@ -286,6 +334,14 @@ extern "C" {
 		if (result)
 		{
 			delete (funasr::FUNASR_RECOG_RESULT*)result;
+		}
+	}
+
+	_FUNASRAPI void CTTransformerFreeResult(FUNASR_RESULT result)
+	{
+		if (result)
+		{
+			delete (funasr::FUNASR_PUNC_RESULT*)result;
 		}
 	}
 
