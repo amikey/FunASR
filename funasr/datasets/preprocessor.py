@@ -378,6 +378,7 @@ class CommonPreprocessor(AbsPreprocessor):
     def _text_process(
         self, data: Dict[str, Union[str, np.ndarray]]
     ) -> Dict[str, np.ndarray]:
+
         if self.text_name in data and self.tokenizer is not None:
             text = data[self.text_name]
             if isinstance(text, np.ndarray):
@@ -399,11 +400,19 @@ class CommonPreprocessor(AbsPreprocessor):
             data[self.text_name] = np.array(text_ints, dtype=np.int64)
 <<<<<<< HEAD
         if self.aux_task_names is not None and self.tokenizer is not None:
+            print("aux task name")
+            print(self.aux_task_names)
+            print("end") 
             for name in self.aux_task_names:
                 if name in data:
                     text = data[name]
                     text = self.text_cleaner(text)
-                    tokens = self.tokenizer.text2tokens(text)
+                    if self.split_with_space:
+                        tokens = text.strip().split(" ")
+                        if self.seg_dict is not None:
+                            tokens = seg_tokenize(tokens, self.seg_dict)
+                    else:
+                        tokens = self.tokenizer.text2tokens(text)
                     text_ints = self.token_id_converter.tokens2ids(tokens)
                     data[name] = np.array(text_ints, dtype=np.int64)
         assert check_return_type(data)
@@ -414,9 +423,15 @@ class CommonPreprocessor(AbsPreprocessor):
     def __call__(
         self, uid: str, data: Dict[str, Union[str, np.ndarray]]
     ) -> Dict[str, np.ndarray]:
+<<<<<<< HEAD
 
+=======
+        assert check_argument_types()
+        print("Call Precessing")
+>>>>>>> aacd4286e4dfefbc07e833f9b069f798663ba64d
         data = self._speech_process(data)
         data = self._text_process(data)
+        print("End Call")
         return data
 
 class LMPreprocessor(CommonPreprocessor):

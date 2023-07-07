@@ -17,7 +17,10 @@ def padding(data, float_pad_value=0.0, int_pad_value=-1):
             continue
         else:
             if data_name != 'hotword_indxs':
-                if data[0][data_name].dtype.kind == "i":
+                if data_name == "lid_utt":
+                    pad_value = int_pad_value
+                    tensor_type = torch.int64
+                elif data[0][data_name].dtype.kind == "i":
                     pad_value = int_pad_value
                     tensor_type = torch.int64
                 else:

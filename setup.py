@@ -28,7 +28,11 @@ requirements = {
         "espnet_tts_frontend",
         # ENH
         "pytorch_wpe",
+<<<<<<< HEAD
         "editdistance>=0.5.2",
+=======
+        "editdistance==0.5.2",
+>>>>>>> aacd4286e4dfefbc07e833f9b069f798663ba64d
         "tensorboard",
         "g2p",
         # PAI

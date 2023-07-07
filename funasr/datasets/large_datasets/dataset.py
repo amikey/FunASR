@@ -95,7 +95,7 @@ class AudioDataset(IterableDataset):
             data_file_list = scp.strip().split()
             data_name_list = self.data_names.split(",")
             data_type_list = self.data_types.split(",")
-
+ 
             for file in data_file_list:
                 assert os.path.exists(file), "{} not exists".format(file)
 

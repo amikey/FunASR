@@ -89,6 +89,15 @@ def tokenize(data,
                 punc_token.append(punc_dict["_"])
         data["punc"] =  np.array(punc_token)
 
+    if "lid_utt" in data:
+        lid_token = []
+        for lid in data["lid_utt"]:
+            if lid in vocab:
+                lid_token.append(vocab[lid])
+            else:
+                lid_token.append(vocab['<unk>'])
+        data["lid_utt"] = lid_token
+
     data["text"] = np.array(token)
     if vad is not -2:
         data["vad_indexes"]=np.array([vad], dtype=np.int64)

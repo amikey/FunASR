@@ -78,7 +78,15 @@ class LargeDataLoader(AbsIterFactory):
         self.speed_perturb = args.speed_perturb if hasattr(args, "speed_perturb") else None 
         logging.info("dataloader config: {}".format(self.dataset_conf))
         batch_mode = self.dataset_conf.get("batch_mode", "padding")
+<<<<<<< HEAD
         data_list = args.train_data_file if mode == "train" else args.valid_data_file
+=======
+        if bpemodel_file is not None:
+            bpe_tokenizer = SentencepiecesTokenizer(bpemodel_file)
+        else:
+            bpe_tokenizer = None
+
+>>>>>>> aacd4286e4dfefbc07e833f9b069f798663ba64d
         self.dataset = Dataset(data_list, symbol_table, seg_dict, punc_dict, bpe_tokenizer,
                                self.dataset_conf, self.frontend_conf,
                                speed_perturb=self.speed_perturb if mode == "train" else None,
