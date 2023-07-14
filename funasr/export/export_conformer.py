@@ -106,6 +106,7 @@ class ModelExport:
 
     def export(self,
                mode: str = None,
+               model_dir: str = None,
                ):
 
         if mode.startswith('conformer'):
@@ -119,7 +120,7 @@ class ModelExport:
             self.frontend = model.frontend
             self.export_config["feats_dim"] = 560
 
-        self._export(model, self.cache_dir)
+        self._export(model, model_dir)
 
 if __name__ == '__main__':
     import argparse
@@ -148,4 +149,4 @@ if __name__ == '__main__':
     )
     for model_name in args.model_name:
         print("export model: {}".format(model_name))
-        export_model.export(model_name)
+        export_model.export(model_name, args.export_dir)
