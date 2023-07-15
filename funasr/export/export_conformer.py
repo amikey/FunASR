@@ -12,6 +12,7 @@ import random
 from funasr.utils.types import str2bool, str2triple_str
 # torch_version = float(".".join(torch.__version__.split(".")[:2]))
 # assert torch_version > 1.9
+from funasr.export.models.e2e_asr_conformer import Conformer as Conformer_export
 
 class ModelExport:
     def __init__(
@@ -53,10 +54,12 @@ class ModelExport:
         os.makedirs(export_dir, exist_ok=True)
 
         self.export_config["model_name"] = "model"
-        model = get_model(
-            model,
-            self.export_config,
-        )
+        #model = get_model(
+        #    model,
+        #    self.export_config,
+        #)
+        #here instance as the conformer model
+        model = Conformer_export(model, self.export_config)
         model.eval()
 
         if self.onnx:
@@ -66,9 +69,9 @@ class ModelExport:
 
     def _export_model(self, model, verbose, path, enc_size=None):
         if enc_size:
-            dummy_input = model.get_dummy_inputs(enc_size)
+            dummy_input = model.funasr_get_dummy_inputs(enc_size)
         else:
-            dummy_input = model.get_dummy_inputs()
+            dummy_input = model.funasr_get_dummy_inputs()
 
         model_script = model
         model_path = os.path.join(path, f'{model.model_name}.onnx')
@@ -79,15 +82,15 @@ class ModelExport:
                 model_path,
                 verbose=verbose,
                 opset_version=14,
-                input_names=model.get_input_names(),
-                output_names=model.get_output_names(),
-                dynamic_axes=model.get_dynamic_axes()
+                input_names=model.funasr_get_input_names(),
+                output_names=model.funasr_get_output_names(),
+                dynamic_axes=model.funasr_get_dynamic_axes()
             )
 
     def _export_onnx(self, model, verbose, path):
         # encoder
         model_encoder = model.get_encoder()
-        self._export_model(model_encoder,verbose,path)
+        self._export_model(model_encoder, verbose, path)
 
         #decoder
         enc_output_size = model_encoder.get_output_size()
@@ -146,8 +149,7 @@ class ModelExport:
             )
             self.frontend = model.frontend
             self.export_config["feats_dim"] = 560
-
-        self._export(model, model_dir)
+            self._export(model, model_dir)
 
 if __name__ == '__main__':
     import argparse

@@ -80,15 +80,44 @@ class ConformerEncoder(nn.Module):
     def get_output_size(self):
         return self.model.encoders[0].size
 
+    def funasr_get_dummy_inputs(self):
+        speech = torch.randn(2, 30, self.feats_dim)
+        speech_lengths = torch.tensor([6, 30], dtype=torch.int32)
+        return (speech, speech_lengths)
+
     def get_dummy_inputs(self):
         feats = torch.randn(1, 100, self.feats_dim)
         return (feats)
 
+    def funasr_get_input_names(self):
+        return ['speech', 'speech_lengths']
+
     def get_input_names(self):
         return ['feats']
 
+    def funasr_get_output_names(self):
+        return ['encoder_out', 'encoder_out_lens']
+
     def get_output_names(self):
         return ['encoder_out', 'encoder_out_lens', 'predictor_weight']
+
+    def funasr_get_dynamic_axes(self):
+        return {
+            'speech': {
+                0: 'batch_size',
+                1: 'feats_length'
+            },
+            'speech_lengths': {
+                0: 'batch_size',
+            },
+            'encoder_out': {
+                0: 'batch_size',
+                1: 'encoder_out'
+            },
+            'encoder_out_lens':{
+                0: 'batch_size',
+            },
+        }
 
     def get_dynamic_axes(self):
         return {
@@ -101,5 +130,4 @@ class ConformerEncoder(nn.Module):
             'predictor_weight':{
                 1: 'pre_out_length'
             }
-
         }
