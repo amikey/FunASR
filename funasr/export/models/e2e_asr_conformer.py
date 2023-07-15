@@ -40,8 +40,12 @@ class Conformer(nn.Module):
         else:
             self.make_pad_mask = sequence_mask(max_seq_len, flip=False)
 
-    def _export_model(self, model, verbose, path):
-        dummy_input = model.get_dummy_inputs()
+    def _export_model(self, model, verbose, path, enc_size=None):
+        if enc_size:
+            dummy_input = model.get_dummy_inputs(enc_size)
+        else:
+            dummy_input = model.get_dummy_inputs()
+
         model_script = model
         model_path = os.path.join(path, f'{model.model_name}.onnx')
         if not os.path.exists(model_path):
@@ -56,14 +60,10 @@ class Conformer(nn.Module):
                 dynamic_axes=model.get_dynamic_axes()
             )
 
-    def _export_encoder_onnx(self, verbose, path):
+    def _export_onnx(self, verbose, path):
         model_encoder = self.encoder
+        enc_output_size = model_encoder.get_output_size()
         self._export_model(model_encoder, verbose, path)
 
-    def _export_decoder_onnx(self, verbose, path):
         model_decoder = self.decoder
-        self._export_model(model_decoder, verbose, path)
-
-    def _export_onnx(self, verbose, path):
-        self._export_encoder_onnx(verbose, path)
-        self._export_decoder_onnx(verbose, path)
+        self._export_model(model_decoder, verbose, path, enc_output_size)
