@@ -42,14 +42,12 @@ class XformerDecoder(nn.Module):
         self.model_name = model_name
 
     def prepare_mask(self, mask):
-        mask_3d_btd = mask[:, :, None]
         if len(mask.shape) == 2:
-            mask_4d_bhlt = 1 - mask[:, None, None, :]
+            mask = mask[:, None, None, :]
         elif len(mask.shape) == 3:
-            mask_4d_bhlt = 1 - mask[:, None, :]
-
-        mask_4d_bhlt = mask_4d_bhlt * -10000.0
-        return mask_3d_btd, mask_4d_bhlt
+            mask = mask[:, None, :]
+        mask = 1 - mask
+        return mask * -10000.0
 
     def forward(self,
                 tgt,

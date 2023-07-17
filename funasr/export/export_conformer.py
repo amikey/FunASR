@@ -12,7 +12,8 @@ import random
 from funasr.utils.types import str2bool, str2triple_str
 # torch_version = float(".".join(torch.__version__.split(".")[:2]))
 # assert torch_version > 1.9
-from funasr.export.models.e2e_asr_conformer import Conformer as Conformer_export
+from funasr.export.models.encoder.conformer_encoder import ConformerEncoder as ConformerEncoder_export
+from funasr.export.models.decoder.xformer_decoder import XformerDecoder as TransformerDecoder_export
 
 class ModelExport:
     def __init__(
@@ -31,7 +32,7 @@ class ModelExport:
         self.cache_dir = cache_dir
         self.export_config = dict(
             feats_dim=560,
-            onnx=False,
+            onnx=True,
         )
         
         self.onnx = onnx
@@ -43,36 +44,15 @@ class ModelExport:
         self.calib_num = calib_num
         self.model_revision = model_revision
 
-    def _export(
-        self,
-        model,
-        model_dir: str = None,
-        verbose: bool = False,
-    ):
-
-        export_dir = model_dir
-        os.makedirs(export_dir, exist_ok=True)
-
-        self.export_config["model_name"] = "model"
-        #model = get_model(
-        #    model,
-        #    self.export_config,
-        #)
-        #here instance as the conformer model
-        model = Conformer_export(model, self.export_config)
-        model.eval()
-
-        if self.onnx:
-            self._export_onnx(model, verbose, export_dir)
-
-        print("output dir: {}".format(export_dir))
-
-    def _export_model(self, model, verbose, path, enc_size=None):
+    def _export_model(self,
+                      model,
+                      verbose: bool = False,
+                      path: str = None,
+                      enc_size=None):
         if enc_size:
             dummy_input = model.get_dummy_inputs(enc_size)
         else:
             dummy_input = model.get_dummy_inputs()
-
 
         model_script = model
         model_path = os.path.join(path, f'{model.model_name}.onnx')
@@ -87,16 +67,6 @@ class ModelExport:
                 output_names=model.get_output_names(),
                 dynamic_axes=model.get_dynamic_axes()
             )
-
-    def _export_onnx(self, model, verbose, path):
-        # encoder
-        model_encoder = model.get_encoder()
-        self._export_model(model_encoder, verbose, path)
-
-        #decoder
-        enc_output_size = model_encoder.get_output_size()
-        model_decoder = model.get_decoder()
-        self._export_model(model_decoder, verbose, path, enc_output_size)
 
     def set_all_random_seed(self, seed: int):
         random.seed(seed)
@@ -148,9 +118,18 @@ class ModelExport:
             model, asr_train_args = ASRTask.build_model_from_file(
                 config, model_file, cmvn_file, 'cpu'
             )
-            self.frontend = model.frontend
-            self.export_config["feats_dim"] = 560
-            self._export(model, model_dir)
+
+            #here, export encoder and decoder
+            verbose = False
+
+            model_encoder = ConformerEncoder_export(model.encoder)
+            model_encoder.eval()
+            self._export_model(model_encoder, verbose, model_dir)
+
+            model_decoder = TransformerDecoder_export(model.decoder)
+            enc_output_size = model_encoder.get_output_size()
+            model_decoder.eval()
+            self._export_model(model_decoder, verbose, model_dir, enc_output_size)
 
 if __name__ == '__main__':
     import argparse
