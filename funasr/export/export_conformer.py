@@ -69,9 +69,10 @@ class ModelExport:
 
     def _export_model(self, model, verbose, path, enc_size=None):
         if enc_size:
-            dummy_input = model.funasr_get_dummy_inputs(enc_size)
+            dummy_input = model.get_dummy_inputs(enc_size)
         else:
-            dummy_input = model.funasr_get_dummy_inputs()
+            dummy_input = model.get_dummy_inputs()
+
 
         model_script = model
         model_path = os.path.join(path, f'{model.model_name}.onnx')
@@ -82,9 +83,9 @@ class ModelExport:
                 model_path,
                 verbose=verbose,
                 opset_version=14,
-                input_names=model.funasr_get_input_names(),
-                output_names=model.funasr_get_output_names(),
-                dynamic_axes=model.funasr_get_dynamic_axes()
+                input_names=model.get_input_names(),
+                output_names=model.get_output_names(),
+                dynamic_axes=model.get_dynamic_axes()
             )
 
     def _export_onnx(self, model, verbose, path):

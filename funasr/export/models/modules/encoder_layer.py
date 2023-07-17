@@ -72,6 +72,7 @@ class EncoderLayerConformer(nn.Module):
             x_att = self.self_attn(x_q, x, x, pos_emb, mask)
         else:
             x_att = self.self_attn(x_q, x, x, mask)
+
         x = residual + x_att
 
         if self.conv_module is not None:

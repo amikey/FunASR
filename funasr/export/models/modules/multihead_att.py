@@ -174,7 +174,10 @@ class OnnxMultiHeadedAttention(nn.Module):
         return q, k, v
     
     def forward_attention(self, value, scores, mask):
+        print("scores size".format(scores.size()))
         scores = scores + mask
+
+        print("scores size".format(scores.size()))
 
         self.attn = torch.softmax(scores, dim=-1)
         context_layer = torch.matmul(self.attn, value)  # (batch, head, time1, d_k)

@@ -57,6 +57,63 @@ class ConformerEncoder(nn.Module):
         
         return mask * -10000.0
 
+    def forward(self, feats):
+        feats_length = torch.ones(feats[:, :, 0].shape).sum(dim=-1).type(torch.long)
+
+        # compute preencoder
+        #if self.preencoder is not None:
+        #    feats, feats_length = self.preencoder(feats, feats_length)
+
+        mask = self.make_pad_mask(feats_length)
+        #if (
+        #        isinstance(self.model.embed, Conv2dSubsampling)
+        #        or isinstance(self.model.embed, Conv2dSubsampling2)
+        #        or isinstance(self.model.embed, Conv2dSubsampling6)
+        #        or isinstance(self.model.embed, Conv2dSubsampling8)
+        #):
+        #    xs_pad, mask = self.embed(feats, mask)
+        #else:
+        xs_pad = self.embed(feats)
+
+        mask = self.prepare_mask(mask)
+
+        intermediate_outs = []
+        if len(self.model.interctc_layer_idx) == 0:
+            xs_pad, mask = self.model.encoders(xs_pad, mask)
+        else:
+            for layer_idx, encoder_layer in enumerate(self.encoders):
+                xs_pad, mask = encoder_layer(xs_pad, mask)
+
+                if layer_idx + 1 in self.model.interctc_layer_idx:
+                    encoder_out = xs_pad
+                    if isinstance(encoder_out, tuple):
+                        encoder_out = encoder_out[0]
+
+                    # intermediate outputs are also normalized
+                    if self.model.normalize_before:
+                        encoder_out = self.model.after_norm(encoder_out)
+
+                    intermediate_outs.append((layer_idx + 1, encoder_out))
+
+                    if self.model.interctc_use_conditioning:
+                        ctc_out = self.ctc.softmax(encoder_out)
+
+                        if isinstance(xs_pad, tuple):
+                            x, pos_emb = xs_pad
+                            x = x + self.model.conditioning_layer(ctc_out)
+                            xs_pad = (x, pos_emb)
+                        else:
+                            xs_pad = xs_pad + self.model.conditioning_layer(ctc_out)
+
+        if isinstance(xs_pad, tuple):
+            xs_pad = xs_pad[0]
+        if self.model.normalize_before:
+            xs_pad = self.model.after_norm(xs_pad)
+
+        olens = mask.squeeze(1).sum(1)
+        return xs_pad, olens
+
+    """
     def forward(self,
                 speech: torch.Tensor,
                 speech_lengths: torch.Tensor,
@@ -76,58 +133,20 @@ class ConformerEncoder(nn.Module):
         xs_pad = self.model.after_norm(xs_pad)
 
         return xs_pad, speech_lengths
+    """
 
     def get_output_size(self):
         return self.model.encoders[0].size
-
-    def funasr_get_dummy_inputs(self):
-        speech = torch.randn(2, 30, self.feats_dim)
-        speech_lengths = torch.tensor([6, 30], dtype=torch.int32)
-        return (speech, speech_lengths)
 
     def get_dummy_inputs(self):
         feats = torch.randn(1, 100, self.feats_dim)
         return (feats)
 
-    def funasr_get_input_names(self):
-        return ['speech', 'speech_lengths']
-
     def get_input_names(self):
         return ['feats']
 
-    def funasr_get_output_names(self):
+    def get_output_names(self):
         return ['encoder_out', 'encoder_out_lens']
 
-    def get_output_names(self):
-        return ['encoder_out', 'encoder_out_lens', 'predictor_weight']
-
-    def funasr_get_dynamic_axes(self):
-        return {
-            'speech': {
-                0: 'batch_size',
-                1: 'feats_length'
-            },
-            'speech_lengths': {
-                0: 'batch_size',
-            },
-            'encoder_out': {
-                0: 'batch_size',
-                1: 'encoder_out'
-            },
-            'encoder_out_lens':{
-                0: 'batch_size',
-            },
-        }
-
     def get_dynamic_axes(self):
-        return {
-            'feats': {
-                1: 'feats_length'
-            },
-            'encoder_out': {
-                1: 'enc_out_length'
-            },
-            'predictor_weight':{
-                1: 'pre_out_length'
-            }
-        }
+        return {"feats": {1: "feats_length"}, "encoder_out": {1: "enc_out_length"}}
