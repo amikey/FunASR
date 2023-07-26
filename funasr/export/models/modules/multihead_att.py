@@ -72,7 +72,7 @@ def preprocess_for_attn(x, mask, cache, pad_fn, kernel_size):
         x = pad_fn(x)
     else:
         x = torch.cat((cache, x), dim=2)
-        cache = x[:, :, -(kernel_size+t-1):]
+        cache = x[:, :, -(kernel_size-1):]
     return x, cache
 
 
