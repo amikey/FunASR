@@ -61,8 +61,9 @@ class XformerDecoder(nn.Module):
         new_cache = []
         for c, decoder in zip(cache, self.model.decoders):
             x, mask = decoder(x, mask, memory, None, c)
-            new_cache.append(x)
+            #new_cache.append(x)
             x = x[:, 1:, :]
+            new_cache.append(x)
 
         if self.model.normalize_before:
             y = self.model.after_norm(x[:, -1])
