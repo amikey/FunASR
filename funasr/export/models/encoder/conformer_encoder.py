@@ -57,60 +57,22 @@ class ConformerEncoder(nn.Module):
         return mask * -10000.0
 
     def forward(self, feats):
-        feats_length = torch.ones(feats[:, :, 0].shape).sum(dim=-1).type(torch.long)
-
-        # compute preencoder
-        #if self.preencoder is not None:
-        #    feats, feats_length = self.preencoder(feats, feats_length)
-
-        mask = self.make_pad_mask(feats_length)
-        #if (
-        #        isinstance(self.model.embed, Conv2dSubsampling)
-        #        or isinstance(self.model.embed, Conv2dSubsampling2)
-        #        or isinstance(self.model.embed, Conv2dSubsampling6)
-        #        or isinstance(self.model.embed, Conv2dSubsampling8)
-        #):
-        #    xs_pad, mask = self.embed(feats, mask)
-        #else:
-        xs_pad = self.embed(feats)
-
+        feats_lengths = torch.ones(feats[:, :, 0].shape).sum(dim=-1).type(torch.long)
+        mask = self.make_pad_mask(feats_lengths)
         mask = self.prepare_mask(mask)
-
-        intermediate_outs = []
-        if len(self.model.interctc_layer_idx) == 0:
-            xs_pad, mask = self.model.encoders(xs_pad, mask)
+        if self.embed is None:
+            xs_pad = speech
         else:
-            for layer_idx, encoder_layer in enumerate(self.encoders):
-                xs_pad, mask = encoder_layer(xs_pad, mask)
+            xs_pad = self.embed(feats)
 
-                if layer_idx + 1 in self.model.interctc_layer_idx:
-                    encoder_out = xs_pad
-                    if isinstance(encoder_out, tuple):
-                        encoder_out = encoder_out[0]
-
-                    # intermediate outputs are also normalized
-                    if self.model.normalize_before:
-                        encoder_out = self.model.after_norm(encoder_out)
-
-                    intermediate_outs.append((layer_idx + 1, encoder_out))
-
-                    if self.model.interctc_use_conditioning:
-                        ctc_out = self.ctc.softmax(encoder_out)
-
-                        if isinstance(xs_pad, tuple):
-                            x, pos_emb = xs_pad
-                            x = x + self.model.conditioning_layer(ctc_out)
-                            xs_pad = (x, pos_emb)
-                        else:
-                            xs_pad = xs_pad + self.model.conditioning_layer(ctc_out)
+        encoder_outs = self.model.encoders(xs_pad, mask)
+        xs_pad, masks = encoder_outs[0], encoder_outs[1]
 
         if isinstance(xs_pad, tuple):
             xs_pad = xs_pad[0]
-        if self.model.normalize_before:
-            xs_pad = self.model.after_norm(xs_pad)
+        xs_pad = self.model.after_norm(xs_pad)
 
-        olens = mask.squeeze(1).sum(1)
-        return xs_pad, olens
+        return xs_pad, feats_lengths
 
     def get_output_size(self):
         return self.model.encoders[0].size
