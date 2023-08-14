@@ -32,7 +32,7 @@ curl -O https://raw.githubusercontent.com/alibaba-damo-academy/FunASR/main/funas
 
 执行部署工具，在提示处输入回车键即可完成服务端安装与部署。目前便捷部署工具暂时仅支持Linux环境，其他环境部署参考开发指南（[点击此处](./SDK_advanced_guide_offline_zh.md)）
 ```shell
-sudo bash funasr-runtime-deploy-offline-cpu-zh.sh install --workspace /root/funasr-runtime-resources
+sudo bash funasr-runtime-deploy-offline-cpu-zh.sh install --workspace ./funasr-runtime-resources
 ```
 
 ### 客户端测试与使用
@@ -54,7 +54,7 @@ python3 funasr_wss_client.py --host "127.0.0.1" --port 10095 --mode offline --au
 - [html](#html-client)
 - [java](#java-client)
 
-更多版本客户端支持请参考[开发指南](./SDK_advanced_guide_offline_zh.md)
+更多版本客户端支持请参考[websocket/grpc协议](./websocket_protocol_zh.md)
 
 ### python-client
 若想直接运行client进行测试，可参考如下简易说明，以python版本为例：
@@ -157,39 +157,13 @@ sudo bash funasr-runtime-deploy-offline-cpu-zh.sh update --decode_thread_num 32
 sudo bash funasr-runtime-deploy-offline-cpu-zh.sh update --workspace /root/funasr-runtime-resources
 ```
 
+### 关闭SSL证书
 
-## 服务端启动过程配置详解
-
-### 选择FunASR Docker镜像
-推荐选择1)使用我们的最新发布版镜像，也可选择历史版本。
-```text
-[1/5]
-  Getting the list of docker images, please wait a few seconds.
-    [DONE]
-
-  Please choose the Docker image.
-    1) registry.cn-hangzhou.aliyuncs.com/funasr_repo/funasr:funasr-runtime-sdk-cpu-0.1.0
-  Enter your choice, default(1):
-  You have chosen the Docker image: registry.cn-hangzhou.aliyuncs.com/funasr_repo/funasr:funasr-runtime-sdk-cpu-0.1.0
-```
-
-
-### 设置宿主机提供给FunASR的端口
-设置提供给Docker的宿主机端口，默认为10095。请保证此端口可用。
-```text
-[2/5]
-  Please input the opened port in the host used for FunASR server.
-  Setting the opened host port [1-65535], default(10095):
-  The port of the host is 10095
-  The port in Docker for FunASR server is 10095
-```
-
-### 设置SSL
-
-默认开启SSL校验，如果需要关闭，可以在启动时设置
 ```shell
-sudo bash funasr-runtime-deploy-offline-cpu-zh.sh --ssl 0
+sudo bash funasr-runtime-deploy-online-cpu-zh.sh update --ssl 0
 ```
+
+
 
 ## 联系我们
 
