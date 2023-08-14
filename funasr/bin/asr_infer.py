@@ -38,7 +38,7 @@ from funasr.text.build_tokenizer import build_tokenizer
 from funasr.text.token_id_converter import TokenIDConverter
 from funasr.torch_utils.device_funcs import to_device
 from funasr.utils.timestamp_tools import ts_prediction_lfr6_standard
-
+from funasr.modules.subsampling import StreamingConvInput
 
 class Speech2Text:
     """Speech2Text class
@@ -1453,9 +1453,14 @@ class Speech2TextTransducer:
             )
             self._right_ctx = right_context
 
-            self.last_chunk_length = (
+            if (isinstance(self.asr_model.encoder.embed, StreamingConvInput)):
+                self.last_chunk_length = (
                     self.asr_model.encoder.embed.min_frame_length + self.right_context + 1
-            )
+                )
+            else:
+                self.last_chunk_length = (
+                    1 + self.right_context + 1
+                )
             self.reset_inference_cache()
 
     def reset_inference_cache(self) -> None:
