@@ -624,11 +624,18 @@ class SANMEncoderChunkOpt(AbsEncoder):
         else:
             raise ValueError("unknown activation_type: " + activation_type)
 
+        fsmn_channel_num = output_size
         if ffn_before_after_fsmn:
-            fsmn_channel_proj1 = torch.nn.Sequential(
-                torch.nn.Linear(output_size, linear_units), ffn_activation
-            )
+            if isinstance(ffn_activation, SwiGLU):
+                fsmn_channel_proj1 = torch.nn.Sequential(
+                    torch.nn.Linear(output_size, linear_units * 2), ffn_activation
+                )
+            else:
+                fsmn_channel_proj1 = torch.nn.Sequential(
+                    torch.nn.Linear(output_size, linear_units), ffn_activation
+                )
             fsmn_channel_proj2 = torch.nn.Linear(linear_units, output_size)
+            fsmn_channel_num = linear_units
 
         if input_layer == "linear":
             self.embed = torch.nn.Sequential(
@@ -712,6 +719,7 @@ class SANMEncoderChunkOpt(AbsEncoder):
                     sanm_shfit,
                     fsmn_channel_proj1,
                     fsmn_channel_proj2,
+                    fsmn_channel_num,
                 )
 
                 encoder_selfattn_layer_args = (
@@ -723,6 +731,7 @@ class SANMEncoderChunkOpt(AbsEncoder):
                     sanm_shfit,
                     fsmn_channel_proj1,
                     fsmn_channel_proj2,
+                    fsmn_channel_num,
                 )
             else:
                 encoder_selfattn_layer_args0 = (

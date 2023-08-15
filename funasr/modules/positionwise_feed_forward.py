@@ -9,6 +9,7 @@
 import torch
 
 from funasr.modules.layer_norm import LayerNorm
+from funasr.modules.swiglu import SwiGLU
 
 
 class PositionwiseFeedForward(torch.nn.Module):
@@ -24,7 +25,10 @@ class PositionwiseFeedForward(torch.nn.Module):
     def __init__(self, idim, hidden_units, dropout_rate, activation=torch.nn.ReLU()):
         """Construct an PositionwiseFeedForward object."""
         super(PositionwiseFeedForward, self).__init__()
-        self.w_1 = torch.nn.Linear(idim, hidden_units)
+        if isinstance(activation, SwiGLU):
+            self.w_1 = torch.nn.Linear(idim, hidden_units * 2)
+        else:
+            self.w_1 = torch.nn.Linear(idim, hidden_units)
         self.w_2 = torch.nn.Linear(hidden_units, idim)
         self.dropout = torch.nn.Dropout(dropout_rate)
         self.activation = activation

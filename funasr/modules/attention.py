@@ -322,7 +322,7 @@ class MultiHeadedAttentionSANM(nn.Module):
 
     """
 
-    def __init__(self, n_head, in_feat, n_feat, dropout_rate, kernel_size, sanm_shfit=0, fsmn_channel_proj1=None, fsmn_channel_proj2=None, lora_list=None, lora_rank=8, lora_alpha=16, lora_dropout=0.1):
+    def __init__(self, n_head, in_feat, n_feat, dropout_rate, kernel_size, sanm_shfit=0, fsmn_channel_proj1=None, fsmn_channel_proj2=None, fsmn_channel=None, lora_list=None, lora_rank=8, lora_alpha=16, lora_dropout=0.1):
         """Construct an MultiHeadedAttention object."""
         super(MultiHeadedAttentionSANM, self).__init__()
         assert n_feat % n_head == 0
@@ -332,6 +332,8 @@ class MultiHeadedAttentionSANM(nn.Module):
         # self.linear_q = nn.Linear(n_feat, n_feat)
         # self.linear_k = nn.Linear(n_feat, n_feat)
         # self.linear_v = nn.Linear(n_feat, n_feat)
+        if fsmn_channel is None:
+            fsmn_channel = n_feat
         if lora_list is not None:
             if "o" in lora_list:
                 self.linear_out = lora.Linear(n_feat, n_feat, r=lora_rank, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
@@ -348,7 +350,7 @@ class MultiHeadedAttentionSANM(nn.Module):
         self.attn = None
         self.dropout = nn.Dropout(p=dropout_rate)
 
-        self.fsmn_block = nn.Conv1d(n_feat, n_feat, kernel_size, stride=1, padding=0, groups=n_feat, bias=False)
+        self.fsmn_block = nn.Conv1d(fsmn_channel, fsmn_channel, kernel_size, stride=1, padding=0, groups=fsmn_channel, bias=False)
         # padding
         left_padding = (kernel_size - 1) // 2
         if sanm_shfit > 0:
