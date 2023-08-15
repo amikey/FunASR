@@ -48,7 +48,10 @@ class EncoderLayerSANM(nn.Module):
         super(EncoderLayerSANM, self).__init__()
         self.self_attn = self_attn
         self.feed_forward = feed_forward
-        self.norm1 = LayerNorm(in_size)
+        if normalize_before:
+            self.norm1 = LayerNorm(in_size)
+        else:
+            self.norm1 = LayerNorm(size)
         self.norm2 = LayerNorm(size)
         self.dropout = nn.Dropout(dropout_rate)
         self.in_size = in_size
@@ -621,6 +624,8 @@ class SANMEncoderChunkOpt(AbsEncoder):
             ffn_activation = torch.nn.ReLU()
         elif activation_type == "swiglu":
             ffn_activation = SwiGLU()
+        elif activation_type == "silu":
+            ffn_activation = torch.nn.SiLU()
         else:
             raise ValueError("unknown activation_type: " + activation_type)
 
