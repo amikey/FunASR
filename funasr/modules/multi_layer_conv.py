@@ -22,7 +22,7 @@ class MultiLayeredConv1d(torch.nn.Module):
 
     """
 
-    def __init__(self, in_chans, hidden_chans, kernel_size, dropout_rate):
+    def __init__(self, in_chans, hidden_chans, kernel_size, dropout_rate, activation=torch.nn.ReLU()):
         """Initialize MultiLayeredConv1d module.
 
         Args:
@@ -48,6 +48,7 @@ class MultiLayeredConv1d(torch.nn.Module):
             padding=(kernel_size - 1) // 2,
         )
         self.dropout = torch.nn.Dropout(dropout_rate)
+        self.activation = activation
 
     def forward(self, x):
         """Calculate forward propagation.
@@ -59,7 +60,7 @@ class MultiLayeredConv1d(torch.nn.Module):
             torch.Tensor: Batch of output tensors (B, T, hidden_chans).
 
         """
-        x = torch.relu(self.w_1(x.transpose(-1, 1))).transpose(-1, 1)
+        x = self.activation(self.w_1(x.transpose(-1, 1))).transpose(-1, 1)
         return self.w_2(self.dropout(x).transpose(-1, 1)).transpose(-1, 1)
 
 
@@ -122,7 +123,7 @@ class Conv1dLinear(torch.nn.Module):
 
     """
 
-    def __init__(self, in_chans, hidden_chans, kernel_size, dropout_rate):
+    def __init__(self, in_chans, hidden_chans, kernel_size, dropout_rate, activation=torch.nn.ReLU()):
         """Initialize Conv1dLinear module.
 
         Args:
@@ -142,6 +143,7 @@ class Conv1dLinear(torch.nn.Module):
         )
         self.w_2 = torch.nn.Linear(hidden_chans, in_chans)
         self.dropout = torch.nn.Dropout(dropout_rate)
+        self.activation = activation
 
     def forward(self, x):
         """Calculate forward propagation.
@@ -153,5 +155,5 @@ class Conv1dLinear(torch.nn.Module):
             torch.Tensor: Batch of output tensors (B, T, hidden_chans).
 
         """
-        x = torch.relu(self.w_1(x.transpose(-1, 1))).transpose(-1, 1)
+        x = self.activation(self.w_1(x.transpose(-1, 1))).transpose(-1, 1)
         return self.w_2(self.dropout(x))

@@ -410,9 +410,9 @@ def inference_paraformer(
 
                     if text is not None:
                         if use_timestamp and timestamp is not None:
-                            postprocessed_result = postprocess_utils.sentence_postprocess(token, timestamp)
+                            postprocessed_result = postprocess_utils.sentence_postprocess(token, timestamp, do_postprocess=kwargs.get("do_postprocess", True))
                         else:
-                            postprocessed_result = postprocess_utils.sentence_postprocess(token)
+                            postprocessed_result = postprocess_utils.sentence_postprocess(token, do_postprocess=kwargs.get("do_postprocess", True))
                         timestamp_postprocessed = ""
                         if len(postprocessed_result) == 3:
                             text_postprocessed, timestamp_postprocessed, word_lists = postprocessed_result[0], \
@@ -1704,6 +1704,12 @@ def get_parser():
         default=None,
         help="hotword file path or hotwords seperated by space"
     )
+    parser.add_argument(
+        "--do_postprocess",
+        type=str2bool,
+        default=True,
+        help="Do postprocess (filter <s>, do wordpiece concatenating)"
+    )
     group.add_argument("--allow_variable_data_keys", type=str2bool, default=False)
     group.add_argument(
         "--mc",
@@ -1897,13 +1903,17 @@ def main(cmd=None):
 
     # gpu setting
     if args.ngpu > 0:
-        jobid = int(args.output_dir.split(".")[-1])
-        gpuid = args.gpuid_list.split(",")[(jobid - 1) // args.njob]
-        os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-        os.environ["CUDA_VISIBLE_DEVICES"] = gpuid
+        try:
+            jobid = int(args.output_dir.split(".")[-1])
+            gpuid = args.gpuid_list.split(",")[(jobid - 1) // args.njob]
+            os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+            os.environ["CUDA_VISIBLE_DEVICES"] = gpuid
+        except:
+            print("Using single thread decoding mode.")
+            pass
 
     inference_pipeline = inference_launch(**kwargs)
-    return inference_pipeline(kwargs["data_path_and_name_and_type"], hotword=kwargs.get("hotword", None))
+    return inference_pipeline(kwargs["data_path_and_name_and_type"], hotword=kwargs.get("hotword", None), do_postprocess=kwargs.get("do_postprocess", True))
 
 
 if __name__ == "__main__":

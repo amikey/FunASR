@@ -322,7 +322,7 @@ class MultiHeadedAttentionSANM(nn.Module):
 
     """
 
-    def __init__(self, n_head, in_feat, n_feat, dropout_rate, kernel_size, sanm_shfit=0, lora_list=None, lora_rank=8, lora_alpha=16, lora_dropout=0.1):
+    def __init__(self, n_head, in_feat, n_feat, dropout_rate, kernel_size, sanm_shfit=0, fsmn_channel_proj1=None, fsmn_channel_proj2=None, lora_list=None, lora_rank=8, lora_alpha=16, lora_dropout=0.1):
         """Construct an MultiHeadedAttention object."""
         super(MultiHeadedAttentionSANM, self).__init__()
         assert n_feat % n_head == 0
@@ -355,9 +355,13 @@ class MultiHeadedAttentionSANM(nn.Module):
             left_padding = left_padding + sanm_shfit
         right_padding = kernel_size - 1 - left_padding
         self.pad_fn = nn.ConstantPad1d((left_padding, right_padding), 0.0)
+        self.fsmn_channel_proj1 = fsmn_channel_proj1
+        self.fsmn_channel_proj2 = fsmn_channel_proj2
 
     def forward_fsmn(self, inputs, mask, mask_shfit_chunk=None):
         b, t, d = inputs.size()
+        if self.fsmn_channel_proj1 is not None:
+            inputs = self.fsmn_channel_proj1(inputs)
         if mask is not None:
             mask = torch.reshape(mask, (b, -1, 1))
             if mask_shfit_chunk is not None:
@@ -369,6 +373,8 @@ class MultiHeadedAttentionSANM(nn.Module):
         x = self.fsmn_block(x)
         x = x.transpose(1, 2)
         x += inputs
+        if self.fsmn_channel_proj2 is not None:
+            x = self.fsmn_channel_proj2(x)
         x = self.dropout(x)
         if mask is not None:
             x = x * mask

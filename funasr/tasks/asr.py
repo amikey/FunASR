@@ -53,6 +53,7 @@ from funasr.models.encoder.conformer_encoder import ConformerEncoder, ConformerC
 from funasr.models.encoder.data2vec_encoder import Data2VecEncoder
 from funasr.models.encoder.rnn_encoder import RNNEncoder
 from funasr.models.encoder.sanm_encoder import SANMEncoder, SANMEncoderChunkOpt
+from funasr.models.encoder.branchformer_encoder import BranchformerEncoder
 from funasr.models.encoder.transformer_encoder import TransformerEncoder
 from funasr.models.encoder.mfcca_encoder import MFCCAEncoder
 from funasr.models.encoder.resnet34_encoder import ResNet34Diar
@@ -160,6 +161,7 @@ encoder_choices = ClassChoices(
         rnn=RNNEncoder,
         sanm=SANMEncoder,
         sanm_chunk_opt=SANMEncoderChunkOpt,
+        branchformer=BranchformerEncoder,
         data2vec_encoder=Data2VecEncoder,
         mfcca_enc=MFCCAEncoder,
         chunk_conformer=ConformerChunkEncoder,
@@ -175,6 +177,7 @@ encoder_choices2 = ClassChoices(
         rnn=RNNEncoder,
         sanm=SANMEncoder,
         sanm_chunk_opt=SANMEncoderChunkOpt,
+        branchformer=BranchformerEncoder,
     ),
     type_check=AbsEncoder,
     default="rnn",
@@ -187,6 +190,7 @@ asr_encoder_choices = ClassChoices(
         rnn=RNNEncoder,
         sanm=SANMEncoder,
         sanm_chunk_opt=SANMEncoderChunkOpt,
+        branchformer=BranchformerEncoder,
         data2vec_encoder=Data2VecEncoder,
         mfcca_enc=MFCCAEncoder,
     ),

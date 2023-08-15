@@ -135,11 +135,20 @@ def abbr_dispose(words: List[Any], time_stamp: List[List] = None) -> List[Any]:
         return word_lists
 
 
-def sentence_postprocess(words: List[Any], time_stamp: List[List] = None):
+def sentence_postprocess(words: List[Any], time_stamp: List[List] = None, do_postprocess: bool = True):
     middle_lists = []
     word_lists = []
     word_item = ''
     ts_lists = []
+
+    if not do_postprocess:
+        for i in words:
+            word_lists.append(i)
+        sentence = ' '.join(word_lists).strip()
+        if time_stamp is not None:
+            ts_lists = time_stamp
+            return sentence, ts_lists, word_lists
+        return sentence, word_lists
 
     # wash words lists
     for i in words:

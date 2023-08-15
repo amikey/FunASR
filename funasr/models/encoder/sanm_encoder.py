@@ -27,6 +27,7 @@ from funasr.modules.subsampling import Conv2dSubsampling8
 from funasr.modules.subsampling import TooShortUttError
 from funasr.modules.subsampling import check_short_utt
 from funasr.modules.mask import subsequent_mask, vad_mask
+from funasr.modules.swiglu import SwiGLU
 
 from funasr.models.ctc import CTC
 from funasr.models.encoder.abs_encoder import AbsEncoder
@@ -596,6 +597,8 @@ class SANMEncoderChunkOpt(AbsEncoder):
             normalize_before: bool = True,
             concat_after: bool = False,
             positionwise_layer_type: str = "linear",
+            activation_type: str = "relu",
+            ffn_before_after_fsmn: bool = False,
             positionwise_conv_kernel_size: int = 1,
             padding_idx: int = -1,
             interctc_layer_idx: List[int] = [],
@@ -614,12 +617,25 @@ class SANMEncoderChunkOpt(AbsEncoder):
         super().__init__()
         self._output_size = output_size
 
+        if activation_type == "relu":
+            ffn_activation = torch.nn.ReLU()
+        elif activation_type == "swiglu":
+            ffn_activation = SwiGLU()
+        else:
+            raise ValueError("unknown activation_type: " + activation_type)
+
+        if ffn_before_after_fsmn:
+            fsmn_channel_proj1 = torch.nn.Sequential(
+                torch.nn.Linear(output_size, linear_units), ffn_activation
+            )
+            fsmn_channel_proj2 = torch.nn.Linear(linear_units, output_size)
+
         if input_layer == "linear":
             self.embed = torch.nn.Sequential(
                 torch.nn.Linear(input_size, output_size),
                 torch.nn.LayerNorm(output_size),
                 torch.nn.Dropout(dropout_rate),
-                torch.nn.ReLU(),
+                ffn_activation,
                 pos_enc_class(output_size, positional_dropout_rate),
             )
         elif input_layer == "conv2d":
@@ -647,12 +663,14 @@ class SANMEncoderChunkOpt(AbsEncoder):
         else:
             raise ValueError("unknown input_layer: " + input_layer)
         self.normalize_before = normalize_before
+
         if positionwise_layer_type == "linear":
             positionwise_layer = PositionwiseFeedForward
             positionwise_layer_args = (
                 output_size,
                 linear_units,
                 dropout_rate,
+                ffn_activation,
             )
         elif positionwise_layer_type == "conv1d":
             positionwise_layer = MultiLayeredConv1d
@@ -661,6 +679,7 @@ class SANMEncoderChunkOpt(AbsEncoder):
                 linear_units,
                 positionwise_conv_kernel_size,
                 dropout_rate,
+                ffn_activation,
             )
         elif positionwise_layer_type == "conv1d-linear":
             positionwise_layer = Conv1dLinear
@@ -669,6 +688,7 @@ class SANMEncoderChunkOpt(AbsEncoder):
                 linear_units,
                 positionwise_conv_kernel_size,
                 dropout_rate,
+                ffn_activation,
             )
         else:
             raise NotImplementedError("Support only linear or conv1d.")
@@ -682,23 +702,46 @@ class SANMEncoderChunkOpt(AbsEncoder):
             )
         elif selfattention_layer_type == "sanm":
             encoder_selfattn_layer = MultiHeadedAttentionSANM
-            encoder_selfattn_layer_args0 = (
-                attention_heads,
-                input_size,
-                output_size,
-                attention_dropout_rate,
-                kernel_size,
-                sanm_shfit,
-            )
+            if ffn_before_after_fsmn:
+                encoder_selfattn_layer_args0 = (
+                    attention_heads,
+                    input_size,
+                    output_size,
+                    attention_dropout_rate,
+                    kernel_size,
+                    sanm_shfit,
+                    fsmn_channel_proj1,
+                    fsmn_channel_proj2,
+                )
 
-            encoder_selfattn_layer_args = (
-                attention_heads,
-                output_size,
-                output_size,
-                attention_dropout_rate,
-                kernel_size,
-                sanm_shfit,
-            )
+                encoder_selfattn_layer_args = (
+                    attention_heads,
+                    output_size,
+                    output_size,
+                    attention_dropout_rate,
+                    kernel_size,
+                    sanm_shfit,
+                    fsmn_channel_proj1,
+                    fsmn_channel_proj2,
+                )
+            else:
+                encoder_selfattn_layer_args0 = (
+                    attention_heads,
+                    input_size,
+                    output_size,
+                    attention_dropout_rate,
+                    kernel_size,
+                    sanm_shfit,
+                )
+
+                encoder_selfattn_layer_args = (
+                    attention_heads,
+                    output_size,
+                    output_size,
+                    attention_dropout_rate,
+                    kernel_size,
+                    sanm_shfit,
+                )
         self.encoders0 = repeat(
             1,
             lambda lnum: EncoderLayerSANM(
