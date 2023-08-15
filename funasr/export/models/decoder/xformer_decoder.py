@@ -5,7 +5,7 @@ import torch.nn as nn
 
 from funasr.modules.attention import MultiHeadedAttention
 
-from funasr.export.models.modules.decoder_layer import DecoderLayer as OnnxDecoderLayer
+from funasr.export.models.modules.decoder_layer import OnnxDecoderLayer
 from funasr.export.models.language_models.embed import Embedding
 from funasr.export.models.modules.multihead_att import \
     OnnxMultiHeadedAttention

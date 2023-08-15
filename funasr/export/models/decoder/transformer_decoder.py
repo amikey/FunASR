@@ -15,7 +15,7 @@ from funasr.export.models.modules.multihead_att import MultiHeadedAttentionCross
 from funasr.export.models.modules.multihead_att import OnnxMultiHeadedAttention
 from funasr.modules.positionwise_feed_forward import PositionwiseFeedForwardDecoderSANM
 from funasr.export.models.modules.feedforward import PositionwiseFeedForwardDecoderSANM as PositionwiseFeedForwardDecoderSANM_export
-from funasr.export.models.modules.decoder_layer import DecoderLayer as DecoderLayer_export
+from funasr.export.models.modules.decoder_layer import OnnxDecoderLayer as DecoderLayer_export
 
 
 class ParaformerDecoderSAN(nn.Module):

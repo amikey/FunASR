@@ -41,8 +41,6 @@ class ConformerEncoder(nn.Module):
                 d.self_attn = MultiHeadedAttentionSANM_export(d.self_attn)
             if isinstance(d.self_attn, RelPositionMultiHeadedAttention):
                 d.self_attn = RelPositionMultiHeadedAttention_export(d.self_attn)
-            if isinstance(d.feed_forward, PositionwiseFeedForward):
-                d.feed_forward = PositionwiseFeedForward_export(d.feed_forward)
             self.model.encoders[i] = EncoderLayerConformer_export(d)
 
         self.model_name = model_name
