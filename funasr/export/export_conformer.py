@@ -6,14 +6,13 @@ import os
 import logging
 import torch
 
-from funasr.export.models import get_model
 import numpy as np
 import random
 from funasr.utils.types import str2bool, str2triple_str
 # torch_version = float(".".join(torch.__version__.split(".")[:2]))
 # assert torch_version > 1.9
 from funasr.export.models.encoder.conformer_encoder import ConformerEncoder as ConformerEncoder_export
-from funasr.export.models.decoder.transformer_decoder import XformerDecoder as TransformerDecoder_export
+from funasr.export.models.decoder.xformer_decoder import XformerDecoder as TransformerDecoder_export
 from funasr.export.models.modules.ctc import CTC as CTC_export
 
 class ModelExport:

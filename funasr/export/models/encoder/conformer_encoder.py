@@ -18,9 +18,9 @@ class ConformerEncoder(nn.Module, AbsExportModel):
     def __init__(
         self,
         model,
-        max_seq_len=512,
-        feats_dim=560,
-        model_name='encoder',
+        max_seq_len = 512,
+        feats_dim = 560,
+        model_name = 'encoder',
         onnx: bool = True,
     ):
         super().__init__()
