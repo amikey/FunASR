@@ -48,6 +48,7 @@ class DecoderLayer(nn.Module):
         self.self_attn = model.self_attn
         self.src_attn = model.src_attn
         self.feed_forward = model.feed_forward
+        self.size = model.size
         self.norm1 = model.norm1
         self.norm2 = model.norm2
         self.norm3 = model.norm3

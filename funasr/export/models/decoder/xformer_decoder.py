@@ -19,7 +19,7 @@ class XformerDecoder(nn.Module):
                  model_name = 'decoder',
                  onnx: bool = True,):
         super().__init__()
-        self.embed = model.embe
+        self.embed = model.embed
         self.model = model
 
         if onnx:

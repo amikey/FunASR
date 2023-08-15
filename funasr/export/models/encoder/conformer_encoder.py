@@ -14,7 +14,7 @@ from funasr.modules.attention import RelPositionMultiHeadedAttention
 # from funasr.export.models.modules.multihead_att import RelPositionMultiHeadedAttention as RelPositionMultiHeadedAttention_export
 from funasr.export.models.modules.multihead_att import OnnxRelPosMultiHeadedAttention as RelPositionMultiHeadedAttention_export
 
-class ConformerEncoder(nn.Module, AbsExportModel):
+class ConformerEncoder(nn.Module):
     def __init__(
         self,
         model,
