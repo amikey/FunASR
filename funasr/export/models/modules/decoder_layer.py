@@ -41,17 +41,38 @@ class DecoderLayerSANM(nn.Module):
 
         return x, tgt_mask, memory, memory_mask, cache
 
-
 class OnnxDecoderLayer(nn.Module):
+    """Encoder layer module.
+
+    Args:
+        size (int): Input dimension.
+        self_attn (torch.nn.Module): Self-attention module instance.
+            `MultiHeadedAttention` or `RelPositionMultiHeadedAttention` instance
+            can be used as the argument.
+        feed_forward (torch.nn.Module): Feed-forward module instance.
+            `PositionwiseFeedForward`, `MultiLayeredConv1d`, or `Conv1dLinear` instance
+            can be used as the argument.
+        dropout_rate (float): Dropout rate.
+        normalize_before (bool): Whether to use layer_norm before the first block.
+        concat_after (bool): Whether to concat attention layer's input and output.
+            if True, additional linear will be applied.
+            i.e. x -> x + linear(concat(x, att(x)))
+            if False, no additional linear will be applied. i.e. x -> x + att(x)
+        stochastic_depth_rate (float): Proability to skip this layer.
+            During training, the layer may skip residual computation and return input
+            as-is with given probability.
+    """
+
     def __init__(self, model):
+        """Construct an EncoderLayer object."""
         super().__init__()
         self.self_attn = model.self_attn
         self.src_attn = model.src_attn
         self.feed_forward = model.feed_forward
-        self.size = model.size
         self.norm1 = model.norm1
         self.norm2 = model.norm2
         self.norm3 = model.norm3
+        self.size = model.size
         self.normalize_before = model.normalize_before
         self.concat_after = model.concat_after
         if self.concat_after:

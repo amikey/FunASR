@@ -141,19 +141,26 @@ class MultiHeadedAttentionCrossAtt(nn.Module):
         context_layer = context_layer.view(new_context_layer_shape)
         return self.linear_out(context_layer)  # (batch, time1, d_model)
 
-
 class OnnxMultiHeadedAttention(nn.Module):
-    def __init__(self, model):
+    def __init__(self, model, model_type="espnet"):
         super().__init__()
-        self.d_k = model.d_k
-        self.h = model.h
-        self.linear_q = model.linear_q
-        self.linear_k = model.linear_k
-        self.linear_v = model.linear_v
-        self.linear_out = model.linear_out
+        if model_type == "espnet":
+            self.d_k = model.d_k
+            self.h = model.h
+            self.linear_q = model.linear_q
+            self.linear_k = model.linear_k
+            self.linear_v = model.linear_v
+            self.linear_out = model.linear_out
+        elif model_type == "hubert":
+            self.d_k = model.head_dim
+            self.h = model.num_heads
+            self.linear_q = model.q_proj
+            self.linear_k = model.k_proj
+            self.linear_v = model.v_proj
+            self.linear_out = model.out_proj
         self.attn = None
         self.all_head_size = self.h * self.d_k
-    
+
     def forward(self, query, key, value, mask):
         q, k, v = self.forward_qkv(query, key, value)
         scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(self.d_k)
@@ -172,19 +179,18 @@ class OnnxMultiHeadedAttention(nn.Module):
         k = self.transpose_for_scores(k)
         v = self.transpose_for_scores(v)
         return q, k, v
-    
+
     def forward_attention(self, value, scores, mask):
         if mask is not None:
             scores = scores + mask
 
         self.attn = torch.softmax(scores, dim=-1)
         context_layer = torch.matmul(self.attn, value)  # (batch, head, time1, d_k)
-        
+
         context_layer = context_layer.permute(0, 2, 1, 3).contiguous()
         new_context_layer_shape = context_layer.size()[:-2] + (self.all_head_size,)
         context_layer = context_layer.view(new_context_layer_shape)
         return self.linear_out(context_layer)  # (batch, time1, d_model)
-
 
 class OnnxRelPosMultiHeadedAttention(OnnxMultiHeadedAttention):
     def __init__(self, model):
