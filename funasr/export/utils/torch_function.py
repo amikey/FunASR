@@ -33,6 +33,15 @@ def make_pad_mask(lengths: torch.Tensor, max_len: int = 0) -> torch.Tensor:
     mask = seq_range_expand >= seq_length_expand
     return mask
 
+def subsequent_mask(size: torch.Tensor):
+    # workaround for torch.tril
+    # tril() is a supported op with opset_version>14,
+    # but opset_version>13 may cause optimization error.
+    arange = torch.arange(size)
+    arange2 = torch.arange(size)
+    mask = arange.unsqueeze(-1).expand(-1, size) >= (arange2)
+    return torch.ones(size, size).masked_fill(mask == 0, 0)
+
 class MakePadMask(nn.Module):
     def __init__(self, max_seq_len=512, flip=True):
         super().__init__()
@@ -91,10 +100,6 @@ def normalize(input: torch.Tensor, p: float = 2.0, dim: int = 1, out: Optional[t
     else:
         denom = input.norm(p, dim, keepdim=True).expand_as(input)
         return torch.div(input, denom, out=out)
-
-def subsequent_mask(size: torch.Tensor):
-    return torch.ones(size, size).tril()
-
 
 def MakePadMask_test():
     feats_length = torch.tensor([10]).type(torch.long)

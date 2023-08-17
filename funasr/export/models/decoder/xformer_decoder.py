@@ -2,25 +2,25 @@ import os
 
 import torch
 import torch.nn as nn
-
-from funasr.modules.attention import MultiHeadedAttention
+from funasr.modules.attention import \
+    MultiHeadedAttention
 
 from funasr.export.models.modules.decoder_layer import OnnxDecoderLayer
-from funasr.export.models.language_models.embed import Embedding
 from funasr.export.models.modules.multihead_att import \
     OnnxMultiHeadedAttention
-
-from funasr.export.utils.torch_function import make_pad_mask, MakePadMask, subsequent_mask
+from funasr.export.utils.torch_function import make_pad_mask, subsequent_mask
 
 class XformerDecoder(nn.Module):
     def __init__(self,
                  model,
-                 max_seq_len = 512,
-                 model_name = 'decoder',
+                 max_seq_len=512,
+                 model_name='decoder',
                  onnx: bool = True,):
         super().__init__()
+        #self.embed = Embedding(model.embed, max_seq_len)
         self.embed = model.embed
         self.model = model
+        #self.make_pad_mask = MakePadMask(max_seq_len, flip=False)
         self.make_pad_mask = make_pad_mask
         if isinstance(self.model.decoders[0].self_attn, MultiHeadedAttention):
             self.num_heads = self.model.decoders[0].self_attn.h
