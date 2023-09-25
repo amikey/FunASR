@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+from os.path import join
 from pathlib import Path
 from typing import Callable
 from typing import Collection
@@ -9,6 +10,7 @@ from typing import List
 from typing import Optional
 from typing import Tuple
 from typing import Union
+from funasr.models.base_model import FunASRModel
 
 import numpy as np
 import torch
@@ -17,12 +19,25 @@ from typeguard import check_argument_types
 from typeguard import check_return_type
 
 from funasr.datasets.collate_fn import CommonCollateFn
+from funasr.datasets.preprocessor import CommonPreprocessor
 from funasr.layers.abs_normalize import AbsNormalize
 from funasr.layers.global_mvn import GlobalMVN
 from funasr.layers.utterance_mvn import UtteranceMVN
+from funasr.models.ctc import CTC
 from funasr.models.e2e_vad import E2EVadModel
 from funasr.models.fsmn_vad import FsmnVadModel
-from funasr.models.encoder.fsmn_encoder import FSMN
+from funasr.models.e2e_vad_semantic import SemanticVADModel, SemanticVADModelChunkOpt
+from funasr.models.e2e_vad_semantic_paraformer import SemanticVADParaformer
+from funasr.models.e2e_vad_semantic_transducer import SemanticVADTransducer
+from funasr.models.encoder.fsmn_encoder import FSMN, DFSMN
+from funasr.models.encoder.conformer_encoder import ConformerEncoder, ConformerChunkEncoder
+from funasr.models.encoder.sanm_encoder import SANMEncoder, SANMEncoderChunkOpt
+from funasr.models.encoder.rwkv_encoder import RWKVEncoder
+from funasr.models.joint_net.joint_network import JointNetwork
+from funasr.models.decoder.sanm_decoder import FsmnDecoderSCAMAOpt, ParaformerSANMDecoder
+from funasr.models.decoder.rnnt_decoder import RNNTDecoder
+from funasr.models.decoder.mlm_decoder import MLMDecoder
+from funasr.models.decoder.rwkv_decoder import RWKVDecoder
 from funasr.models.frontend.abs_frontend import AbsFrontend
 from funasr.models.frontend.default import DefaultFrontend
 from funasr.models.frontend.fused import FusedFrontends
@@ -32,12 +47,18 @@ from funasr.models.frontend.windowing import SlidingWindow
 from funasr.models.specaug.abs_specaug import AbsSpecAug
 from funasr.models.specaug.specaug import SpecAug
 from funasr.models.specaug.specaug import SpecAugLFR
+from funasr.modules.subsampling import Conv1dSubsampling
+from funasr.models.predictor.cif import CifPredictor, CifPredictorV2, CifPredictorV3
 from funasr.tasks.abs_task import AbsTask
+from funasr.text.phoneme_tokenizer import g2p_choices
+from funasr.torch_utils.initialize import initialize
 from funasr.train.class_choices import ClassChoices
 from funasr.train.trainer import Trainer
+from funasr.utils.get_default_kwargs import get_default_kwargs
 from funasr.utils.types import float_or_none
 from funasr.utils.types import int_or_none
 from funasr.utils.types import str_or_none
+from funasr.utils.types import str2bool
 from funasr.utils.nested_dict_action import NestedDictAction
 
 frontend_choices = ClassChoices(
@@ -78,20 +99,78 @@ model_choices = ClassChoices(
     classes=dict(
         e2evad=E2EVadModel,
         fsmnvad=FsmnVadModel,
+        semanticvad=SemanticVADModel,
+        semanticvad_chunkopt=SemanticVADModelChunkOpt,
+        semanticvad_paraformer=SemanticVADParaformer,
+        semanticvad_transducer=SemanticVADTransducer
     ),
     type_check=object,
-    default="e2evad",
+    default="semanticvad_chunkopt",
 )
 
 encoder_choices = ClassChoices(
     "encoder",
     classes=dict(
         fsmn=FSMN,
+        dfsmn=DFSMN,
+        conformer=ConformerEncoder,
+        sanm=SANMEncoder,
+        sanm_chunk_opt=SANMEncoderChunkOpt,
+        chunk_conformer=ConformerChunkEncoder,
+        rwkv=RWKVEncoder,
     ),
     type_check=torch.nn.Module,
-    default="fsmn",
+    default="dfsmn",
 )
 
+decoder_choices = ClassChoices(
+    "decoder",
+    classes=dict(
+        fsmn_scama_opt=FsmnDecoderSCAMAOpt,
+        paraformer_decoder_sanm=ParaformerSANMDecoder,
+    ),
+    default="fsmn_scama_opt",
+)
+
+rnnt_decoder_choices = ClassChoices(
+    "rnnt_decoder",
+    classes=dict(
+        rnnt=RNNTDecoder,
+        rwkv=RWKVDecoder,
+        mlm=MLMDecoder,
+    ),
+    default="rnnt",
+)
+
+joint_network_choices = ClassChoices(
+    name="joint_network",
+    classes=dict(
+        joint_network=JointNetwork,
+    ),
+    default="joint_network",
+    optional=True,
+)
+
+predictor_choices = ClassChoices(
+    name="predictor",
+    classes=dict(
+        cif_predictor=CifPredictor,
+        ctc_predictor=None,
+        cif_predictor_v2=CifPredictorV2,
+        cif_predictor_v3=CifPredictorV3,
+    ),
+    default="cif_predictor",
+    optional=True,
+)
+
+stride_conv_choices = ClassChoices(
+    name="stride_conv",
+    classes=dict(
+        stride_conv1d=Conv1dSubsampling
+    ),
+    default="stride_conv1d",
+    optional=True,
+)
 
 class VADTask(AbsTask):
     # If you need more than one optimizers, change this value
@@ -108,7 +187,16 @@ class VADTask(AbsTask):
         # --model and --model_conf
         model_choices,
         # --encoder and --encoder_conf
-        encoder_choices
+        encoder_choices,
+        # --decoder and --decoder_conf
+        decoder_choices,
+        # --predictor and --predictor_conf
+        predictor_choices,
+        # --stride_conv and --stride_conv_conf
+        stride_conv_choices,
+        # --rnnt_decoder and --rnnt_decoder_conf
+        rnnt_decoder_choices,
+        # joint_network_choices,
     ]
 
     # If you need to modify train() or eval() procedures, change Trainer class here
@@ -122,7 +210,77 @@ class VADTask(AbsTask):
         # to provide --print_config mode. Instead of it, do as
         # required = parser.get_default("required")
         # required += ["token_list"]
+        group.add_argument(
+            "--token_list",
+            type=str_or_none,
+            default=None,
+            help="A text mapping int-id to token",
+        )
+        group.add_argument(
+            "--split_with_space",
+            type=str2bool,
+            default=True,
+            help="whether to split text using <space>",
+        )
+        group.add_argument(
+            "--seg_dict_file",
+            type=str,
+            default=None,
+            help="seg_dict_file for text processing",
+        )
+        group.add_argument(
+            "--ctc_conf",
+            action=NestedDictAction,
+            default=get_default_kwargs(CTC),
+            help="The keyword arguments for CTC class.",
+        )
+        group.add_argument(
+            "--joint_network_conf",
+            action=NestedDictAction,
+            default=None,
+            help="The keyword arguments for joint network class.",
+        )
 
+        group = parser.add_argument_group(description="Preprocess related")
+        group.add_argument(
+            "--use_preprocessor",
+            type=str2bool,
+            default=True,
+            help="Apply preprocessing to data or not",
+        )
+        group.add_argument(
+            "--token_type",
+            type=str,
+            default="bpe",
+            choices=["bpe", "char", "word", "phn"],
+            help="The text will be tokenized " "in the specified level token",
+        )
+        group.add_argument(
+            "--bpemodel",
+            type=str_or_none,
+            default=None,
+            help="The model file of sentencepiece",
+        )
+        parser.add_argument(
+            "--non_linguistic_symbols",
+            type=str_or_none,
+            default=None,
+            help="non_linguistic_symbols file path",
+        )
+        parser.add_argument(
+            "--cleaner",
+            type=str_or_none,
+            choices=[None, "tacotron", "jaconv", "vietnamese"],
+            default=None,
+            help="Apply text cleaning",
+        )
+        parser.add_argument(
+            "--g2p",
+            type=str_or_none,
+            choices=g2p_choices,
+            default=None,
+            help="Specify g2p method if --token_type=phn",
+        )
         group.add_argument(
             "--init",
             type=lambda x: str_or_none(x.lower()),
@@ -216,28 +374,35 @@ class VADTask(AbsTask):
             cls, args: argparse.Namespace, train: bool
     ) -> Optional[Callable[[str, Dict[str, np.array]], Dict[str, np.ndarray]]]:
         assert check_argument_types()
-        # if args.use_preprocessor:
-        #    retval = CommonPreprocessor(
-        #        train=train,
-        #        # NOTE(kamo): Check attribute existence for backward compatibility
-        #        rir_scp=args.rir_scp if hasattr(args, "rir_scp") else None,
-        #        rir_apply_prob=args.rir_apply_prob
-        #        if hasattr(args, "rir_apply_prob")
-        #        else 1.0,
-        #        noise_scp=args.noise_scp if hasattr(args, "noise_scp") else None,
-        #        noise_apply_prob=args.noise_apply_prob
-        #        if hasattr(args, "noise_apply_prob")
-        #        else 1.0,
-        #        noise_db_range=args.noise_db_range
-        #        if hasattr(args, "noise_db_range")
-        #        else "13_15",
-        #        speech_volume_normalize=args.speech_volume_normalize
-        #        if hasattr(args, "rir_scp")
-        #        else None,
-        #    )
-        # else:
-        #    retval = None
-        retval = None
+        if args.use_preprocessor:
+            retval = CommonPreprocessor(
+                train=train,
+                token_type=args.token_type,
+                token_list=args.token_list,
+                bpemodel=args.bpemodel,
+                non_linguistic_symbols=args.non_linguistic_symbols if hasattr(args, "non_linguistic_symbols") else None,
+                text_cleaner=args.cleaner,
+                g2p_type=args.g2p,
+                split_with_space=args.split_with_space if hasattr(args, "split_with_space") else False,
+                seg_dict_file=args.seg_dict_file if hasattr(args, "seg_dict_file") else None,
+                # NOTE(kamo): Check attribute existence for backward compatibility
+                rir_scp=args.rir_scp if hasattr(args, "rir_scp") else None,
+                rir_apply_prob=args.rir_apply_prob
+                if hasattr(args, "rir_apply_prob")
+                else 1.0,
+                noise_scp=args.noise_scp if hasattr(args, "noise_scp") else None,
+                noise_apply_prob=args.noise_apply_prob
+                if hasattr(args, "noise_apply_prob")
+                else 1.0,
+                noise_db_range=args.noise_db_range
+                if hasattr(args, "noise_db_range")
+                else "13_15",
+                speech_volume_normalize=args.speech_volume_normalize
+                if hasattr(args, "rir_scp")
+                else None,
+            )
+        else:
+            retval = None
         assert check_return_type(retval)
         return retval
 
@@ -246,6 +411,7 @@ class VADTask(AbsTask):
             cls, train: bool = True, inference: bool = False
     ) -> Tuple[str, ...]:
         if not inference:
+            #retval = ("speech", "text", "point_text", "vad_text")
             retval = ("speech", "text")
         else:
             # Recognition mode
@@ -256,23 +422,14 @@ class VADTask(AbsTask):
     def optional_data_names(
             cls, train: bool = True, inference: bool = False
     ) -> Tuple[str, ...]:
-        retval = ()
+        #retval = ()
+        retval = ("point_text", "vad_text")
         assert check_return_type(retval)
         return retval
 
     @classmethod
     def build_model(cls, args: argparse.Namespace):
         assert check_argument_types()
-        # 4. Encoder
-        encoder_class = encoder_choices.get_class(args.encoder)
-        encoder = encoder_class(**args.encoder_conf)
-
-        # 5. Build model
-        try:
-            model_class = model_choices.get_class(args.model)
-        except AttributeError:
-            model_class = model_choices.get_class("e2evad")
-
         # 1. frontend
         if args.input_size is None:
             # Extract features in the model
@@ -290,7 +447,7 @@ class VADTask(AbsTask):
             input_size = args.input_size
             feature_transform = args.feature_transform
 
-        if args.specaug is not None:
+        if  args.specaug is not None:
             specaug_class = specaug_choices.get_class(args.specaug)
             specaug = specaug_class(**args.specaug_conf)
         else:
@@ -301,14 +458,181 @@ class VADTask(AbsTask):
             normalize = normalize_class(**args.normalize_conf)
         else:
             normalize = None
+        if args.stride_conv is not None:
+            stride_conv_class = stride_conv_choices.get_class(args.stride_conv)
+            stride_conv = stride_conv_class(**args.stride_conv_conf, idim=input_size, odim=input_size)
+        else:
+            stride_conv = None
+        # 4. Encoder
+        encoder_class = encoder_choices.get_class(args.encoder)
+        encoder = encoder_class(**args.encoder_conf)
+
+        # 5. Build model
+        try:
+            model_class = model_choices.get_class(args.model)
+        except AttributeError:
+            model_class = model_choices.get_class("e2evad")
+        if args.model == "e2evad":
+            encoder.eval()
+
 
         if encoder.training:
             model = model_class(frontend=frontend, specaug=specaug, normalize=normalize, encoder=encoder, feature_transform=feature_transform)
         else:
-            model = model_class(encoder=encoder, vad_post_args=args.vad_post_conf, frontend=frontend)
+            model = model_class(encoder=encoder, stride_conv=stride_conv, vad_post_args=args.vad_post_conf, frontend=frontend)
 
         return model
 
+    @classmethod
+    def build_vad_semantic_model(cls, args):
+        assert check_argument_types()
+        if isinstance(args.token_list, str):
+            with open(args.token_list, encoding="utf-8") as f:
+                token_list = [line.rstrip() for line in f]
+
+            # Overwriting token_list to keep it as "portable".
+            args.token_list = list(token_list)
+        elif isinstance(args.token_list, (tuple, list)):
+            token_list = list(args.token_list)
+        else:
+            raise RuntimeError("token_list must be str or list")
+        vocab_size = len(token_list)
+        logging.info(f"Vocabulary size: {vocab_size}")
+
+        # frontend
+        if args.input_size is None:
+            frontend_class = frontend_choices.get_class(args.frontend)
+            if args.frontend == 'wav_frontend':
+                frontend = frontend_class(cmvn_file=args.cmvn_file, **args.frontend_conf)
+            else:
+                frontend = frontend_class(**args.frontend_conf)
+            input_size = frontend.output_size()
+        else:
+            args.frontend = None
+            args.frontend_conf = {}
+            frontend = None
+            input_size = args.input_size
+
+        # data augmentation for spectrogram
+        if args.specaug is not None:
+            specaug_class = specaug_choices.get_class(args.specaug)
+            specaug = specaug_class(**args.specaug_conf)
+        else:
+            specaug = None
+
+        # normalization layer
+        if args.normalize is not None:
+            normalize_class = normalize_choices.get_class(args.normalize)
+            normalize = normalize_class(**args.normalize_conf)
+        else:
+            normalize = None
+
+        # encoder
+        encoder_class = encoder_choices.get_class(args.encoder)
+        encoder = encoder_class(input_size=input_size, **args.encoder_conf)
+
+        # decoder
+        if getattr(args, "decoder", None) is not None:
+            decoder_class = decoder_choices.get_class(args.decoder)
+            decoder = decoder_class(
+                vocab_size=vocab_size,
+                encoder_output_size=encoder.output_size(),
+                **args.decoder_conf,
+            )
+        else:
+            decoder = None
+
+        # ctc
+        ctc = CTC(
+            #odim=vocab_size, encoder_output_size=encoder.output_size(), **args.ctc_conf
+            odim=vocab_size, encoder_output_size=encoder.output_size()
+        )
+
+        if args.model in ["semanticvad"]:
+            model_class = model_choices.get_class(args.model)
+            model = model_class(
+                vocab_size=vocab_size,
+                frontend=frontend,
+                specaug=specaug,
+                normalize=normalize,
+                encoder=encoder,
+                decoder=decoder,
+                ctc=ctc,
+                token_list=token_list,
+                **args.model_conf,
+            )
+        elif args.model in ["semanticvad_chunkopt"]:
+            stride_conv_class = stride_conv_choices.get_class(args.stride_conv)
+            stride_conv = stride_conv_class(**args.stride_conv_conf, idim=input_size, odim=input_size)
+            predictor_class = predictor_choices.get_class(args.predictor)
+            predictor = predictor_class(**args.predictor_conf)
+            model_class = model_choices.get_class(args.model)
+            model = model_class(
+                vocab_size=vocab_size,
+                frontend=frontend,
+                specaug=specaug,
+                normalize=normalize,
+                encoder=encoder,
+                decoder=decoder,
+                stride_conv=stride_conv,
+                ctc=ctc,
+                token_list=token_list,
+                predictor=predictor,
+                **args.model_conf,
+            )
+        elif args.model in ["semanticvad_paraformer"]:
+            #stride_conv_class = stride_conv_choices.get_class(args.stride_conv)
+            #stride_conv = stride_conv_class(**args.stride_conv_conf, idim=input_size, odim=input_size)
+            predictor_class = predictor_choices.get_class(args.predictor)
+            predictor = predictor_class(**args.predictor_conf)
+            model_class = model_choices.get_class(args.model)
+            model = model_class(
+                vocab_size=vocab_size,
+                frontend=frontend,
+                specaug=specaug,
+                normalize=normalize,
+                encoder=encoder,
+                decoder=decoder,
+                ctc=ctc,
+                token_list=token_list,
+                predictor=predictor,
+                **args.model_conf,
+            )
+        elif args.model in ["semanticvad_transducer"]:
+            encoder_output_size = encoder.output_size()
+            rnnt_decoder_class = rnnt_decoder_choices.get_class(args.rnnt_decoder)
+            decoder_rnnt = rnnt_decoder_class(
+                    vocab_size,
+                    **args.rnnt_decoder_conf,
+                    )
+            decoder_output_size = decoder_rnnt.output_size
+            joint_network = JointNetwork(
+                vocab_size,
+                encoder_output_size,
+                decoder_output_size,
+                **args.joint_network_conf,
+                )
+            model_class = model_choices.get_class(args.model)
+            model = model_class(
+                vocab_size=vocab_size,
+                token_list=token_list,
+                frontend=frontend,
+                specaug=specaug,
+                normalize=normalize,
+                encoder=encoder,
+                decoder=decoder_rnnt,
+                att_decoder=decoder,
+                joint_network=joint_network,
+                **args.model_conf,
+            )
+        else:
+            raise NotImplementedError("Not supported model: {}".format(args.model))
+
+        # initialize
+        if args.init is not None:
+            initialize(model, args.init)
+
+        return model
     # ~~~~~~~~~ The methods below are mainly used for inference ~~~~~~~~~
     @classmethod
     def build_model_from_file(
@@ -342,8 +666,24 @@ class VADTask(AbsTask):
             args = yaml.safe_load(f)
         # if cmvn_file is not None:
         args["cmvn_file"] = cmvn_file
+        if "input_size" not in args:
+            args["input_size"] = None
+        if "frontend" not in args:
+            args["frontend"] = None
+            args["frontend_conf"] = None
+        if "specaug" not in args:
+            args["specaug"] = None 
+        if "normalize" not in args:
+            args["normalize"] = None
+        if "feature_transform" not in args:
+            args["feature_transform"] = None
+
         args = argparse.Namespace(**args)
-        model = cls.build_model(args)
+        model = None
+        if args.model in ["fsmnvad", "e2evad"]:
+            model = cls.build_model(args)
+        else:
+            model = cls.build_vad_semantic_model(args)
         model.to(device)
         model_dict = dict()
         model_name_pth = None
@@ -354,6 +694,8 @@ class VADTask(AbsTask):
             model_dir = os.path.dirname(model_file)
             model_name = os.path.basename(model_file)
             model_dict = torch.load(model_file, map_location=device)
-        model.encoder.load_state_dict(model_dict)
+        #model.encoder.load_state_dict(model_dict)
+            model.load_state_dict(model_dict, strict=False)
 
         return model, args
+
