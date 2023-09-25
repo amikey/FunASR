@@ -74,6 +74,9 @@ from funasr.utils.types import str_or_none
 from funasr.utils.wav_utils import calc_shape, generate_data_list, filter_wav_text
 from funasr.utils.yaml_no_alias_safe_dump import yaml_no_alias_safe_dump
 
+from transformers.optimization import get_linear_schedule_with_warmup
+#import bitsandbytes as bnb
+
 try:
     import wandb
 except Exception:
@@ -266,7 +269,10 @@ class AbsTask(ABC):
     def build_model(cls, args: argparse.Namespace) -> FunASRModel:
         raise NotImplementedError
 
-
+    @classmethod
+    @abstractmethod
+    def build_vad_semantic_model(cls, args: argparse.Namespace) -> FunASRModel:
+        raise NotImplementedError
     @classmethod
     def get_parser(cls) -> config_argparse.ArgumentParser:
         assert check_argument_types()
@@ -1127,7 +1133,8 @@ class AbsTask(ABC):
         if not args.distributed or not args.multiprocessing_distributed:
             cls.main_worker(args)
         else:
-            assert args.ngpu > 1
+            if not args.use_pai:
+                assert args.ngpu > 1
             cls.main_worker(args)
 
     @classmethod
@@ -1185,21 +1192,21 @@ class AbsTask(ABC):
             if not args.simple_ddp or distributed_option.dist_rank == 0:
                 calc_shape(args.data_dir, args.train_set, args.frontend_conf, args.speech_length_min,
                            args.speech_length_max)
-                calc_shape(args.data_dir, args.dev_set, args.frontend_conf, args.speech_length_min,
+                calc_shape(args.data_dir, args.valid_set, args.frontend_conf, args.speech_length_min,
                            args.speech_length_max)
             if args.simple_ddp:
                 dist.barrier()
             args.train_shape_file = [os.path.join(args.data_dir, args.train_set, "speech_shape")]
-            args.valid_shape_file = [os.path.join(args.data_dir, args.dev_set, "speech_shape")]
+            args.valid_shape_file = [os.path.join(args.data_dir, args.valid_set, "speech_shape")]
 
         if args.train_data_file is None and args.dataset_type == "large":
             if not args.simple_ddp or distributed_option.dist_rank == 0:
                 generate_data_list(args.data_dir, args.train_set)
-                generate_data_list(args.data_dir, args.dev_set)
+                generate_data_list(args.data_dir, args.valid_set)
             if args.simple_ddp:
                 dist.barrier()
             args.train_data_file = os.path.join(args.data_dir, args.train_set, "data.list")
-            args.valid_data_file = os.path.join(args.data_dir, args.dev_set, "data.list")
+            args.valid_data_file = os.path.join(args.data_dir, args.valid_set, "data.list")
 
         # NOTE(kamo): Don't use logging before invoking logging.basicConfig()
         if not distributed_option.distributed or distributed_option.dist_rank == 0:
@@ -1242,12 +1249,18 @@ class AbsTask(ABC):
         torch.backends.cudnn.enabled = args.cudnn_enabled
         torch.backends.cudnn.benchmark = args.cudnn_benchmark
         torch.backends.cudnn.deterministic = args.cudnn_deterministic
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.allow_tf32 = True
         if args.detect_anomaly:
             logging.info("Invoking torch.autograd.set_detect_anomaly(True)")
             torch.autograd.set_detect_anomaly(args.detect_anomaly)
 
         # 2. Build model
-        model = cls.build_model(args=args)
+        model = None
+        if args.model in ["fsmnvad"]:
+            model = cls.build_model(args=args)
+        else:
+            model = cls.build_vad_semantic_model(args=args)
         if not isinstance(model, FunASRModel):
             raise RuntimeError(
                 f"model must inherit {FunASRModel.__name__}, but got {type(model)}"
@@ -1271,7 +1284,11 @@ class AbsTask(ABC):
             suf = "" if i == 1 else str(i)
             name = getattr(args, f"scheduler{suf}")
             conf = getattr(args, f"scheduler{suf}_conf")
-            if name is not None:
+            if name == "lambda_lr":
+                # if args.max_update != sys.maxsize:
+                assert args.max_update != sys.maxsize, "max_update must be set when using lambda_lr scheduler"
+                scheduler = get_linear_schedule_with_warmup(optim, num_warmup_steps=0, num_training_steps=args.max_update)
+            elif name is not None:
                 cls_ = scheduler_classes.get(name)
                 if cls_ is None:
                     raise ValueError(
