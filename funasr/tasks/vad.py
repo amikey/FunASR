@@ -29,7 +29,7 @@ from funasr.models.fsmn_vad import FsmnVadModel
 from funasr.models.e2e_vad_semantic import SemanticVADModel, SemanticVADModelChunkOpt
 from funasr.models.e2e_vad_semantic_paraformer import SemanticVADParaformer
 from funasr.models.e2e_vad_semantic_transducer import SemanticVADTransducer
-from funasr.models.encoder.fsmn_encoder import FSMN, DFSMN
+from funasr.models.encoder.fsmn_encoder import FSMN, DFSMN, DFSMNBottleneck
 from funasr.models.encoder.conformer_encoder import ConformerEncoder, ConformerChunkEncoder
 from funasr.models.encoder.sanm_encoder import SANMEncoder, SANMEncoderChunkOpt
 from funasr.models.encoder.rwkv_encoder import RWKVEncoder
@@ -113,6 +113,7 @@ encoder_choices = ClassChoices(
     classes=dict(
         fsmn=FSMN,
         dfsmn=DFSMN,
+        dfsmn_bottleneck=DFSMNBottleneck,
         conformer=ConformerEncoder,
         sanm=SANMEncoder,
         sanm_chunk_opt=SANMEncoderChunkOpt,
@@ -168,7 +169,8 @@ stride_conv_choices = ClassChoices(
     classes=dict(
         stride_conv1d=Conv1dSubsampling
     ),
-    default="stride_conv1d",
+    #default="stride_conv1d",
+    default="None",
     optional=True,
 )
 
@@ -423,7 +425,7 @@ class VADTask(AbsTask):
             cls, train: bool = True, inference: bool = False
     ) -> Tuple[str, ...]:
         #retval = ()
-        retval = ("point_text", "vad_text")
+        retval = ("point_text", "vad_text", "asr_text")
         assert check_return_type(retval)
         return retval
 
@@ -686,7 +688,6 @@ class VADTask(AbsTask):
             model = cls.build_vad_semantic_model(args)
         model.to(device)
         model_dict = dict()
-        model_name_pth = None
         if model_file is not None:
             logging.info("model_file is {}".format(model_file))
             if device == "cuda":
@@ -694,7 +695,7 @@ class VADTask(AbsTask):
             model_dir = os.path.dirname(model_file)
             model_name = os.path.basename(model_file)
             model_dict = torch.load(model_file, map_location=device)
-        #model.encoder.load_state_dict(model_dict)
+            #model.encoder.load_state_dict(model_dict)
             model.load_state_dict(model_dict, strict=False)
 
         return model, args
