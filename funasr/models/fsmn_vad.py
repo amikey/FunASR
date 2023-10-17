@@ -21,9 +21,12 @@ from funasr.models.frontend.abs_frontend import AbsFrontend
 from funasr.models.specaug.abs_specaug import AbsSpecAug
 from funasr.modules.nets_utils import th_accuracy
 from funasr.torch_utils.device_funcs import force_gatherable
-from funasr.models.encoder.fsmn_encoder import FSMN
+from funasr.models.encoder.fsmn_encoder import FSMN, DFSMN, DFSMNBottleneck
 from funasr.models.base_model import FunASRModel
 import time
+from funasr.losses.label_smoothing_loss import (
+    LabelSmoothingLoss,  # noqa: H301
+)
 
 if LooseVersion(torch.__version__) >= LooseVersion("1.6.0"):
     from torch.cuda.amp import autocast
@@ -95,12 +98,17 @@ def apply_cmvn(inputs, cmvn):  # noqa
     # LFR_outputs = torch.vstack(LFR_inputs)
     # return LFR_outputs.type(torch.float32)
 
-def apply_lfr(inputs):
-    left_padding = inputs[:, 0:1, :].repeat(1, 2, 1)
-    right_padding = inputs[:, -1:, :].repeat(1, 2, 1)
+def apply_lfr(inputs, lfr_m, lfr_n):
+    left_padding = inputs[:, 0:1, :].repeat(1, (lfr_m - 1) // 2, 1)
+    right_padding = inputs[:, -1:, :].repeat(1, (lfr_m - 1 ) // 2, 1)
     inputs = torch.cat((left_padding, inputs, right_padding), dim=1)
-    outputs = torch.cat((inputs[:, :-4, :], inputs[:, 1:-3, :], inputs[:, 2:-2, :], inputs[:, 3:-1, :], inputs[:, 4:, :]), dim=2)
-    return outputs
+    if lfr_m == 5:
+        outputs = torch.cat((inputs[:, :-4, :], inputs[:, 1:-3, :], inputs[:, 2:-2, :], inputs[:, 3:-1, :], inputs[:, 4:, :]), dim=2)
+    elif lfr_m == 3:
+        outputs = torch.cat((inputs[:, :-3, :], inputs[:, 1:-2, :], inputs[:, 2:, :]), dim=2)
+    else:
+       outputs = inputs
+    return outputs[:, ::lfr_n, :]
 
 class FsmnVadModel(FunASRModel):
     """CTC-attention hybrid Encoder-Decoder model"""
@@ -110,10 +118,10 @@ class FsmnVadModel(FunASRModel):
             frontend: Optional[AbsFrontend],
             specaug: Optional[AbsSpecAug],
             normalize: Optional[AbsNormalize],
-            encoder: FSMN,
+            encoder: Union[FSMN, DFSMN, DFSMNBottleneck],
             extract_feats_in_collect_stats: bool = True,
             ignore_id: int = -1,
-            feature_transform: Dict[str, Union[str, int]] = dict()
+            feature_transform: Dict[str, Union[str, int]] = dict(),
     ):
         assert check_argument_types()
 
@@ -124,8 +132,14 @@ class FsmnVadModel(FunASRModel):
         self.normalize = normalize
         self.encoder = encoder
         self.ignore_id = ignore_id
-        self.softmax = torch.nn.Softmax(dim=2)
-        self.criterion = nn.CrossEntropyLoss() 
+        lsm_weight = 0
+        length_normalized_loss = False
+        self.criterion = LabelSmoothingLoss(
+            size=2,
+            padding_idx=ignore_id,
+            smoothing=lsm_weight,
+            normalize_length=length_normalized_loss,
+        )
         self.extract_feats_in_collect_stats = extract_feats_in_collect_stats
         self.feature_transform = feature_transform
         # self.cmvn = None
@@ -135,13 +149,42 @@ class FsmnVadModel(FunASRModel):
             self.cmvn = load_cmvn(feature_transform['cmvn_file'])
             self.lfr_m = feature_transform['lfr_m']
             self.lfr_n = feature_transform['lfr_n']
+        
+        self.vad_classifier = torch.nn.Linear(256, 2)
+        self.leaky_relu=torch.nn.LeakyReLU(0.1)
+        self.point_classifier = torch.nn.Linear(256, 3)
+        self.criterion_point = LabelSmoothingLoss(
+            size=3,
+            padding_idx=ignore_id,
+            smoothing=lsm_weight,
+            normalize_length=length_normalized_loss,
+        )
+        self.asr_affine_layer_1=torch.nn.Linear(256, 1024)
+        self.asr_linear_layer_1=torch.nn.Linear(1024, 1024, bias=False)
+        self.asr_classifier = torch.nn.Linear(1024, 2)
+        self.criterion_asr = LabelSmoothingLoss(
+            size=2,
+            padding_idx=ignore_id,
+            smoothing=lsm_weight,
+            normalize_length=length_normalized_loss,
+        )
 
+    def to_kaldi_net(self):
+        return self.encoder.to_kaldi_net()
+
+    def to_pytorch_net(self, kaldi_file):
+        return self.encoder.to_pytorch_net(kaldi_file)
+    
     def forward(
             self,
             speech: torch.Tensor,
             speech_lengths: torch.Tensor,
-            text: torch.Tensor,
-            text_lengths: torch.Tensor,
+            vad_text: torch.Tensor,
+            vad_text_lengths: torch.Tensor,
+            asr_text: torch.Tensor = None,
+            asr_text_lengths: torch.Tensor = None,
+            point_text: torch.Tensor = None,
+            point_text_lengths: torch.Tensor = None,
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], torch.Tensor]:
         """Frontend + Encoder + Decoder + Calc loss
 
@@ -151,31 +194,72 @@ class FsmnVadModel(FunASRModel):
             text: (Batch, Length)
             text_lengths: (Batch,)
         """
-        assert text_lengths.dim() == 1, text_lengths.shape
+        assert vad_text_lengths.dim() == 1, vad_text_lengths.shape
         # Check that batch_size is unified
-        assert (
-                speech.shape[0]
-                == speech_lengths.shape[0]
-                == text.shape[0]
-                == text_lengths.shape[0]
-        ), (speech.shape, speech_lengths.shape, text.shape, text_lengths.shape)
+        if point_text is not None:
+            assert (
+                    speech.shape[0]
+                    == speech_lengths.shape[0]
+                    == asr_text.shape[0]
+                    == asr_text_lengths.shape[0]
+                    == point_text.shape[0]
+                    == vad_text.shape[0]
+            ), (speech.shape, speech_lengths.shape, asr_text.shape, asr_text_lengths.shape, point_text.shape, point_text_lengths.shape, vad_text.shape, vad_text_lengths.shape)
+        else:
+            assert (
+                    speech.shape[0]
+                    == speech_lengths.shape[0]
+                    == vad_text.shape[0]
+                    == vad_text_lengths.shape[0]
+            ), (speech.shape, speech_lengths.shape, vad_text.shape, vad_text_lengths.shape)
         batch_size = speech.shape[0]
 
         # for data-parallel
-        text = text[:, : text_lengths.max()]
-
+        vad_text = vad_text[:, : vad_text_lengths.max()]
+        min_t = min(speech_lengths.max(), vad_text_lengths.max()) if point_text is None else min(speech_lengths.max(), point_text_lengths.max(), vad_text_lengths.max())
+        speech = speech[:, :min_t]
+        vad_text = vad_text[:, :min_t]
+        vad_text = vad_text[:, ::self.lfr_n].contiguous()
+        
+        if point_text is not None:
+            point_text = point_text[:, :min_t]
+            point_text = point_text[:, ::self.lfr_n].contiguous()
+            asr_text = asr_text[:, :min_t]
+            asr_text = asr_text[:, ::self.lfr_n].contiguous()
         # 1. Encoder
         encoder_out = self.encode(speech, speech_lengths)
-        scores = self.softmax(encoder_out)
+        if point_text is not None:
+            encoder_out_bottleneck = encoder_out.clone()
+            encoder_out = self.vad_classifier(encoder_out)
+
         acc = th_accuracy(
-            scores.view(-1, scores.shape[-1]),
-            text,
+            encoder_out.view(-1, encoder_out.shape[-1]),
+            vad_text,
             ignore_label=self.ignore_id,
         )
         stats = dict()
-        min_t = min(encoder_out.shape[1], text.shape[1])
-        loss = self.criterion(encoder_out[:, :min_t, :].view(-1, encoder_out.shape[-1]), text[:, :min_t].view(-1))
+        loss = self.criterion(encoder_out, vad_text)
 
+        if point_text is not None:
+            point_out = self.point_classifier(encoder_out_bottleneck)
+            acc_point = th_accuracy(
+                    point_out.view(-1, 3),
+                    point_text,
+                    ignore_label=self.ignore_id,
+                    )
+            loss_point = self.criterion_point(point_out, point_text)
+            
+            x1 = self.asr_affine_layer_1(encoder_out_bottleneck)
+            x2 = self.leaky_relu(x1)
+            x3 = self.asr_linear_layer_1(x2)
+            asr_out = self.asr_classifier(x3)
+            acc_asr = th_accuracy(
+                    asr_out.view(-1, 2),
+                    asr_text,
+                    ignore_label=self.ignore_id,
+                    )
+            loss_asr = self.criterion_asr(asr_out, asr_text)
+            loss = 0.2 * loss_asr + 0.2 * loss_point + (1 - 0.2 - 0.2) * loss
         # Collect Attn branch stats
         stats["acc"] = acc
 
@@ -190,8 +274,8 @@ class FsmnVadModel(FunASRModel):
             self,
             speech: torch.Tensor,
             speech_lengths: torch.Tensor,
-            text: torch.Tensor,
-            text_lengths: torch.Tensor,
+            vad_text: torch.Tensor,
+            vad_text_lengths: torch.Tensor,
     ) -> Dict[str, torch.Tensor]:
         if self.extract_feats_in_collect_stats:
             feats, feats_lengths = self._extract_feats(speech, speech_lengths)
@@ -230,9 +314,9 @@ class FsmnVadModel(FunASRModel):
         # 4. Forward encoder
         # feats: (Batch, Length, Dim)
         # -> encoder_out: (Batch, Length2, Dim2)
-        encoder_out = self.encoder(feats, in_cache=dict())
 
-        return encoder_out
+        # encoder_out = self.encoder(feats, in_cache=dict())
+        return self.encoder(feats, in_cache=dict())
 
     def _extract_feats(
             self, speech: torch.Tensor, speech_lengths: torch.Tensor
@@ -252,8 +336,10 @@ class FsmnVadModel(FunASRModel):
             # No frontend and no feature extract
             feats, feats_lengths = speech, speech_lengths
             if self.feature_transform:
-                feats = apply_lfr(feats)
+                feats = apply_lfr(feats, self.lfr_m, self.lfr_n)
                 feats = apply_cmvn(feats, self.cmvn)
+                feats_lengths = (feats_lengths + self.lfr_n - 1) // self.lfr_n
+
                 # for idx, feat in enumerate(feats):
                     # feat_lfr = apply_lfr(feat, self.lfr_m, self.lfr_n)
                     # feats_lfr_cmvn.append(apply_cmvn(feat_lfr, self.cmvn))
