@@ -66,10 +66,15 @@ FunASR开源了大量在工业数据上预训练模型，您可以在[模型许�
 
 <a name="快速开始"></a>
 ## 快速开始
-### step.1 加载头定义
+### step.1 加载头定义和下载音频文件
 ```python
 from modelscope.pipelines import pipeline
 from modelscope.utils.constant import Tasks
+
+# 中文测试音频
+wget https://isv-data.oss-cn-hangzhou.aliyuncs.com/ics/MaaS/ASR/test_audio/vad_example.wav
+# 英文测试音频
+wget 
 ```
 ### step.2 定义推理pipeline
 
@@ -88,14 +93,14 @@ inference_pipeline = pipeline(
 
 #### 非实时模型
 ```python
-rec_result = inference_pipeline(audio_in='https://isv-data.oss-cn-hangzhou.aliyuncs.com/ics/MaaS/ASR/test_audio/vad_example.wav') #语音输入
+rec_result = inference_pipeline(audio_in='./vad_example.wav') #语音输入
 # rec_result = inference_pipeline(text_in='我们都是木头人不会讲话不会动') #文本输入
 ```
 
 #### 实时模型
 ```python
 import soundfile
-speech, sample_rate = soundfile.read("example/asr_example.wav")
+speech, sample_rate = soundfile.read("./vad_example.wav")
 
 chunk_size = [0, 10, 5] #[0, 10, 5] 600ms, [0, 8, 4] 480ms
 encoder_chunk_look_back = 4 #number of chunks to lookback for encoder self-attention
