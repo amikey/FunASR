@@ -66,6 +66,9 @@ FunASR开源了大量在工业数据上预训练模型，您可以在[模型许�
 
 <a name="快速开始"></a>
 ## 快速开始
+FunASR支持数万小时工业数据训练的模型的推理和微调，详细信息可以参阅（[modelscope_egs](https://alibaba-damo-academy.github.io/FunASR/en/modelscope_pipeline/quick_start.html)）；也支持学术标准数据集模型的训练和微调，详细信息可以参阅（[egs](https://alibaba-damo-academy.github.io/FunASR/en/academic_recipe/asr_recipe.html)）。
+
+下面为快速上手教程
 ### step.1 加载头定义和下载音频文件
 ```python
 from modelscope.pipelines import pipeline
@@ -118,9 +121,7 @@ rec_result = inference_pipeline(audio_in=speech_chunk, param_dict=param_dict)
 print(rec_result)
 ```
 
-[//]: # (快速使用教程（[新人文档]&#40;https://alibaba-damo-academy.github.io/FunASR/en/funasr/quick_start_zh.html&#41;）)
-
-FunASR支持数万小时工业数据训练的模型的推理和微调，详细信息可以参阅（[modelscope_egs](https://alibaba-damo-academy.github.io/FunASR/en/modelscope_pipeline/quick_start.html)）；也支持学术标准数据集模型的训练和微调，详细信息可以参阅（[egs](https://alibaba-damo-academy.github.io/FunASR/en/academic_recipe/asr_recipe.html)）。 模型包含语音识别（ASR）、语音活动检测（VAD）、标点恢复、语言模型、说话人验证、说话人分离和多人对话语音识别等，详细模型列表可以参阅[模型仓库](https://github.com/alibaba-damo-academy/FunASR/blob/main/docs/model_zoo/modelscope_models.md)：
+更多详细用法（[新人文档](https://alibaba-damo-academy.github.io/FunASR/en/funasr/quick_start_zh.html)）
 
 
 <a name="服务部署"></a>
