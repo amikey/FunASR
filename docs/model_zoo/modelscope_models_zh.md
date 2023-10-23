@@ -115,7 +115,7 @@
 
 |                                                    模型名字                                     |  语言  |    训练数据    | 模型参数 | 备注       |
 |:--------------------------------------------------------------------------------------------------:|:--------------:|:-------------------:|:----------:|:---------|
-| [TP-Aligner](https://modelscope.cn/models/damo/speech_timestamp_prediction-v1-16k-非实时/summary) |中文| 阿里巴巴语音数据 (50000hours) |   37.8M    | 时间戳模型，中文 |
+| [TP-Aligner](https://www.modelscope.cn/models/damo/speech_timestamp_prediction-v1-16k-offline/summary) |中文| 阿里巴巴语音数据 (50000hours) |   37.8M    | 时间戳模型，中文 |
 
 ### 逆文本正则化
 
