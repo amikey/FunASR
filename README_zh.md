@@ -44,15 +44,100 @@ FunASR希望在语音识别的学术研究和工业应用之间架起一座桥�
 ## 安装教程
 FunASR安装教程请阅读（[Installation](https://alibaba-damo-academy.github.io/FunASR/en/installation/installation.html)）
 
-<a name="服务部署"></a>
-## 服务部署
-FunASR支持预训练或者进一步微调的模型进行服务部署。目前中文离线文件转写服务一键部署的CPU版本已经发布，详细信息参阅([一键部署文档](funasr/runtime/docs/SDK_tutorial_zh.md)。更多服务部署详细信息可以参阅([服务部署文档](funasr/runtime/readme_cn.md))。
+## 模型仓库
+
+FunASR开源了大量在工业数据上预训练模型，您可以在[模型许可协议](./MODEL_LICENSE)下自由使用、复制、修改和分享FunASR模型，下面列举代表性的模型，更多模型请参考[模型仓库]()。
+
+（注：[🤗]()表示Huggingface模型仓库链接，[⭐]()表示ModelScope模型仓库链接）
+
+
+|                                                                                                         模型名字                                                                                                         |        任务详情        |     训练数据     | 参数量  |
+|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|:------------------:|:------------:|:----:|
+| speech_paraformer-large-vad-punc_asr_nat-zh-cn-16k-common-vocab8404-pytorch ([🤗]() [⭐](https://www.modelscope.cn/models/damo/speech_paraformer-large-vad-punc_asr_nat-zh-cn-16k-common-vocab8404-pytorch/summary) ) |  语音识别，带时间戳输出，非实时   |  60000小时，中文  | 220M |
+|                            speech_paraformer-large-vad-punc-spk_asr_nat-zh-cn ([🤗]() [⭐](https://modelscope.cn/models/damo/speech_paraformer-large-vad-punc-spk_asr_nat-zh-cn/summary) )                            | 分角色语音识别，带时间戳输出，非实时 |  60000小时，中文  | 220M |
+|           speech_paraformer-large-vad-punc_asr_nat-en-16k-common-vocab10020 ([🤗]() [⭐](https://www.modelscope.cn/models/damo/speech_paraformer-large-vad-punc_asr_nat-en-16k-common-vocab10020/summary) )           |      语音识别，非实时      |  50000小时，英文  | 220M |
+|                                 speech_conformer_asr-en-16k-vocab4199-pytorch ([🤗]() [⭐](https://modelscope.cn/models/damo/speech_conformer_asr-en-16k-vocab4199-pytorch/summary) )                                 |      语音识别，非实时      |  50000小时，英文  | 220M |
+|      speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-online ([🤗]() [⭐](https://modelscope.cn/models/damo/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-online/summary) )                    |      语音识别，实时       |  60000小时，中文  | 220M | 
+|      punc_ct-transformer_cn-en-common-vocab471067-large ([🤗]() [⭐](https://modelscope.cn/models/damo/punc_ct-transformer_cn-en-common-vocab471067-large/summary) )                    |      标点恢复，非实时      |  100M，中文与英文  | 1.1G | 
+|      speech_fsmn_vad_zh-cn-8k-common ([🤗]() [⭐](https://modelscope.cn/models/damo/speech_fsmn_vad_zh-cn-8k-common/summary) )                    |     语音端点检测，实时      | 5000小时，中文与英文 | 0.4M | 
+|      speech_timestamp_prediction-v1-16k-offline ([🤗]() [⭐](https://modelscope.cn/models/damo/speech_timestamp_prediction-v1-16k-offline/summary) )                    |      字级别时间戳预测      |  50000小时，中文  | 38M  | 
+
+
+
+
 
 <a name="快速开始"></a>
 ## 快速开始
-快速使用教程（[新人文档](https://alibaba-damo-academy.github.io/FunASR/en/funasr/quick_start_zh.html)）
+FunASR支持数万小时工业数据训练的模型的推理和微调，详细信息可以参阅（[modelscope_egs](https://alibaba-damo-academy.github.io/FunASR/en/modelscope_pipeline/quick_start.html)）；也支持学术标准数据集模型的训练和微调，详细信息可以参阅（[egs](https://alibaba-damo-academy.github.io/FunASR/en/academic_recipe/asr_recipe.html)）。
 
-FunASR支持数万小时工业数据训练的模型的推理和微调，详细信息可以参阅（[modelscope_egs](https://alibaba-damo-academy.github.io/FunASR/en/modelscope_pipeline/quick_start.html)）；也支持学术标准数据集模型的训练和微调，详细信息可以参阅（[egs](https://alibaba-damo-academy.github.io/FunASR/en/academic_recipe/asr_recipe.html)）。 模型包含语音识别（ASR）、语音活动检测（VAD）、标点恢复、语言模型、说话人验证、说话人分离和多人对话语音识别等，详细模型列表可以参阅[模型仓库](https://github.com/alibaba-damo-academy/FunASR/blob/main/docs/model_zoo/modelscope_models.md)：
+下面为快速上手教程
+### step.1 加载头定义和下载音频文件
+```python
+from modelscope.pipelines import pipeline
+from modelscope.utils.constant import Tasks
+
+# 中文测试音频
+wget https://isv-data.oss-cn-hangzhou.aliyuncs.com/ics/MaaS/ASR/test_audio/vad_example.wav
+# 英文测试音频
+wget 
+```
+### step.2 定义推理pipeline
+
+```python
+inference_pipeline = pipeline(
+    task=Tasks.auto_speech_recognition,
+    model='damo/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-pytorch',
+)
+```
+其中，
+- `task`参数为任务类型，支持有：语音识别（`Tasks.auto_speech_recognition`），标点恢复（`Tasks.punctuation`），语音端点检测（`Tasks.voice_activity_detection`），时间戳预测（`Tasks.speech_timestamp`）。
+- `model`参数为具体模型名，与`task`参数配合使用，支持[模型仓库]中任意模型。
+
+### step.3 推理音频
+分为非实时模型与实时模型，非实时模型输入为整句音频/文本，实时模型输入为音频流或者片段
+
+#### 非实时模型
+```python
+rec_result = inference_pipeline(audio_in='./vad_example.wav') #语音输入
+# rec_result = inference_pipeline(text_in='我们都是木头人不会讲话不会动') #文本输入
+```
+
+#### 实时模型
+```python
+import soundfile
+speech, sample_rate = soundfile.read("./vad_example.wav")
+
+chunk_size = [0, 10, 5] #[0, 10, 5] 600ms, [0, 8, 4] 480ms
+encoder_chunk_look_back = 4 #number of chunks to lookback for encoder self-attention
+decoder_chunk_look_back = 1 #number of encoder chunks to lookback for decoder cross-attention
+param_dict = {"cache": dict(), "is_final": False, "chunk_size": chunk_size,
+              "encoder_chunk_look_back": encoder_chunk_look_back, "decoder_chunk_look_back": decoder_chunk_look_back}
+chunk_stride = chunk_size[1] * 960 # 600ms、480ms
+# first chunk, 600ms
+speech_chunk = speech[0:chunk_stride]
+rec_result = inference_pipeline(audio_in=speech_chunk, param_dict=param_dict)
+print(rec_result)
+# next chunk, 600ms
+speech_chunk = speech[chunk_stride:chunk_stride+chunk_stride]
+rec_result = inference_pipeline(audio_in=speech_chunk, param_dict=param_dict)
+print(rec_result)
+```
+
+更多详细用法（[新人文档](https://alibaba-damo-academy.github.io/FunASR/en/funasr/quick_start_zh.html)）
+
+
+<a name="服务部署"></a>
+## 服务部署
+FunASR支持预训练或者进一步微调的模型进行服务部署。目前支持以下几种服务部署：
+
+- 中文离线文件转写服务（CPU版本），已完成
+- 中文流式语音识别服务（CPU版本），已完成
+- 英文离线文件转写服务（CPU版本），已完成
+- 中文离线文件转写服务（GPU版本），进行中
+- 更多支持中
+
+详细信息可以参阅([服务部署文档](funasr/runtime/readme_cn.md))。
+
 
 <a name="社区交流"></a>
 ## 联系我们
