@@ -46,7 +46,9 @@ FunASR安装教程请阅读（[Installation](https://alibaba-damo-academy.github
 
 ## 模型仓库
 
-FunASR开源了大量在工业数据上预训练模型，您可以在[模型许可协议](./MODEL_LICENSE)下自由使用、复制、修改和分享FunASR模型，下面列举代表性的模型，更多模型请参考[模型仓库]()
+FunASR开源了大量在工业数据上预训练模型，您可以在[模型许可协议](./MODEL_LICENSE)下自由使用、复制、修改和分享FunASR模型，下面列举代表性的模型，更多模型请参考[模型仓库]()。
+
+（注：[🤗]()表示Huggingface模型仓库链接，[⭐]()表示ModelScope模型仓库链接）
 
 
 |                                                                                                         模型名字                                                                                                         |        任务详情        |     训练数据     | 参数量  |

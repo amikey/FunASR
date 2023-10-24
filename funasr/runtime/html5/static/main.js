@@ -442,6 +442,16 @@ function stop() {
 			"chunk_interval":10,
 			"mode":getAsrMode(),
 		};
+//		var chunk_size = new Array( 0, 10, 5 );
+//		var request = {
+//			"chunk_size": chunk_size,
+//			"wav_name":  "h5",
+//			"is_speaking":  false,
+//			"chunk_interval":10,
+//			"mode":getAsrMode(),
+//			"encoder_chunk_look_back": 4,
+//			"decoder_chunk_look_back": 1,
+//		};
 		console.log(request);
 		if(sampleBuf.length>0){
 		wsconnecter.wsSend(sampleBuf);
